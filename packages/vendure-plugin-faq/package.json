@@ -1,6 +1,6 @@
 {
   "name": "@rahul_vendure/vendure-plugin-faq",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Vendure plugin for managing FAQs with i18n, channel support, and dashboard UI",
   "exports": {
     "./package.json": "./package.json",

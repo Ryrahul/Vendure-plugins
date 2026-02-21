@@ -8,12 +8,15 @@ const config: CodegenConfig = {
     config: {
         scalars: { Money: 'number' },
         namingConvention: { enumValues: 'keep' },
+        // Use `T | undefined` instead of `T | null` for optional inputs,
+        // matching Vendure core's type conventions.
+        maybeValue: 'T | undefined',
+        inputMaybeValue: 'T | undefined',
     },
     generates: {
-        // Add one entry per plugin that needs generated types, e.g.:
-        // '../../packages/vendure-plugin-foo/src/gql/generated.ts': {
-        //     plugins: ['typescript'],
-        // },
+        '../../packages/vendure-plugin-faq/src/gql/generated.ts': {
+            plugins: ['typescript'],
+        },
     },
 };
 

@@ -11,6 +11,7 @@ apps/dev-server/vendure.sqlite
 # Environment
 .env
 .env.local
+mcp.json
 
 # IDE
 .idea/
@@ -24,3 +25,7 @@ Thumbs.db
 
 # Build artifacts
 *.tsbuildinfo
+
+# GraphQL codegen (regenerate with: cd apps/dev-server && npm run schema && npm run codegen)
+apps/dev-server/schema.graphql
+packages/*/src/gql/generated.ts

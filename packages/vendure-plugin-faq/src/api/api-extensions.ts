@@ -60,7 +60,7 @@ export const adminApiExtensions = gql`
     }
 
     input AssignFaqsToChannelsInput {
-        channelIds: [ID]!
+        channelIds: [ID!]!
         faqIds: [ID!]!
     }
 

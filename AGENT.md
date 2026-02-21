@@ -24,6 +24,8 @@ Root structure:
 │   │    │    ├── resolvers/
 │   │    │    ├── subscribers/
 │   │    │    ├── migrations/
+│   │    │    ├── gql/
+│   │    │    │    └── generated.ts    (auto-generated, gitignored)
 │   │    │    ├── dashboard/          (React Dashboard extension)
 │   │    │    │    ├── index.tsx
 │   │    │    │    ├── routes.tsx
@@ -41,6 +43,8 @@ Root structure:
 │   └── dev-server/
 │        ├── src/
 │        │    └── vendure-config.ts
+│        ├── codegen.ts               (GraphQL codegen config)
+│        ├── schema.graphql           (auto-generated, gitignored)
 │        ├── package.json
 │        └── tsconfig.json
 │
@@ -182,7 +186,58 @@ Dashboard files are NOT compiled for publishing.
 They are bundled by host Vite.
 
 ============================================================
-6. MIGRATION RULES
+6. GRAPHQL CODEGEN RULES
+============================================================
+
+GraphQL input types, args types, and query/mutation types
+are auto-generated from the schema using @graphql-codegen.
+
+Infrastructure lives in apps/dev-server:
+
+- codegen.ts        → codegen configuration
+- schema.graphql    → generated schema file (gitignored)
+
+Generated output goes into each plugin:
+
+- packages/<plugin>/src/gql/generated.ts (gitignored)
+
+Workflow:
+
+1. cd apps/dev-server
+2. npm run schema       → generates schema.graphql from Vendure config
+3. npm run codegen      → generates TypeScript types into plugin src/gql/
+
+When to regenerate:
+
+- After adding/changing GraphQL schema extensions (api-extensions.ts)
+- After adding/changing custom fields
+- After updating Vendure version
+
+Rules:
+
+- NEVER manually define GraphQL input/args types in plugin code.
+  Import them from '../gql/generated' instead.
+- Plugin-specific config interfaces (e.g. FaqPluginOptions) that are
+  NOT part of the GraphQL schema should still live in types.ts.
+- schema.graphql and generated.ts are gitignored. Each developer
+  must regenerate locally after cloning.
+- The codegen config uses maybeValue: 'T | undefined' to match
+  Vendure core's convention (not T | null).
+- When adding a new plugin to codegen, add an entry in
+  apps/dev-server/codegen.ts under the generates section.
+
+Adding a new plugin to codegen:
+
+In apps/dev-server/codegen.ts, add:
+
+generates: {
+    '../../packages/vendure-plugin-<name>/src/gql/generated.ts': {
+        plugins: ['typescript'],
+    },
+}
+
+============================================================
+7. MIGRATION RULES
 ============================================================
 
 Plugins do NOT ship migrations.
@@ -201,7 +256,7 @@ When schema changes:
 - Breaking DB change → major bump.
 
 ============================================================
-7. DEV SERVER RULES
+8. DEV SERVER RULES
 ============================================================
 
 apps/dev-server is used ONLY for local testing.
@@ -222,7 +277,7 @@ Example dependency:
 Dev server must never be published.
 
 ============================================================
-8. PUBLISHING WORKFLOW
+9. PUBLISHING WORKFLOW
 ============================================================
 
 Before publishing any plugin:
@@ -242,7 +297,7 @@ Scoped packages require --access public.
 Never publish raw src except src/dashboard.
 
 ============================================================
-9. VERSIONING STRATEGY
+10. VERSIONING STRATEGY
 ============================================================
 
 1.0.0 → initial
@@ -254,7 +309,7 @@ If entity changes → at least minor.
 If migration is breaking → major.
 
 ============================================================
-10. AI ASSISTANT BEHAVIOR CONTRACT
+11. AI ASSISTANT BEHAVIOR CONTRACT
 ============================================================
 
 When generating plugin code:

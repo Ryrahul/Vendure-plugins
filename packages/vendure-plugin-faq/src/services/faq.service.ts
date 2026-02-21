@@ -17,7 +17,7 @@ import {
 
 import { Faq } from '../entities/faq.entity';
 import { FaqTranslation } from '../entities/faq-translation.entity';
-import { CreateFaqInput, UpdateFaqInput } from '../types';
+import { CreateFaqInput, UpdateFaqInput } from '../gql/generated';
 
 @Injectable()
 export class FaqService {

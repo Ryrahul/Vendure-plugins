@@ -1,10 +1,18 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { Allow, Ctx, ID, RequestContext, Transaction } from '@vendure/core';
+import { Allow, Ctx, RequestContext, Transaction } from '@vendure/core';
 
 import { faqPermission } from '../constants';
 import { Faq } from '../entities/faq.entity';
 import { FaqService } from '../services/faq.service';
-import { CreateFaqInput, UpdateFaqInput } from '../types';
+import {
+    MutationCreateFaqArgs,
+    MutationUpdateFaqArgs,
+    MutationDeleteFaqArgs,
+    MutationAssignFaqsToChannelsArgs,
+    MutationRemoveFaqsFromCurrentChannelArgs,
+    QueryFaqArgs,
+    QueryFaqsArgs,
+} from '../gql/generated';
 
 @Resolver()
 export class FaqAdminResolver {
@@ -14,7 +22,7 @@ export class FaqAdminResolver {
     @Mutation()
     async createFaq(
         @Ctx() ctx: RequestContext,
-        @Args() args: { input: CreateFaqInput },
+        @Args() args: MutationCreateFaqArgs,
     ) {
         return this.faqService.create(ctx, args.input);
     }
@@ -23,20 +31,20 @@ export class FaqAdminResolver {
     @Mutation()
     async updateFaq(
         @Ctx() ctx: RequestContext,
-        @Args() args: { input: UpdateFaqInput },
+        @Args() args: MutationUpdateFaqArgs,
     ) {
         return this.faqService.update(ctx, args.input);
     }
 
     @Allow(faqPermission.Read)
     @Query()
-    async faqs(@Ctx() ctx: RequestContext, @Args() args: any) {
-        return this.faqService.findAll(ctx, args.options);
+    async faqs(@Ctx() ctx: RequestContext, @Args() args: QueryFaqsArgs) {
+        return this.faqService.findAll(ctx, args.options ?? undefined);
     }
 
     @Allow(faqPermission.Read)
     @Query()
-    async faq(@Ctx() ctx: RequestContext, @Args() args: { id: ID }) {
+    async faq(@Ctx() ctx: RequestContext, @Args() args: QueryFaqArgs) {
         return this.faqService.findOne(ctx, args.id);
     }
 
@@ -45,7 +53,7 @@ export class FaqAdminResolver {
     @Mutation()
     async deleteFaq(
         @Ctx() ctx: RequestContext,
-        @Args() args: { ids: ID[] },
+        @Args() args: MutationDeleteFaqArgs,
     ) {
         return this.faqService.delete(ctx, args.ids);
     }
@@ -55,7 +63,7 @@ export class FaqAdminResolver {
     @Allow(faqPermission.Update)
     async assignFaqsToChannels(
         @Ctx() ctx: RequestContext,
-        @Args() args: { input: { faqIds: ID[]; channelIds: ID[] } },
+        @Args() args: MutationAssignFaqsToChannelsArgs,
     ): Promise<Faq[]> {
         return this.faqService.assignToChannels(ctx, args.input.faqIds, args.input.channelIds);
     }
@@ -65,7 +73,7 @@ export class FaqAdminResolver {
     @Allow(faqPermission.Update)
     async removeFaqsFromCurrentChannel(
         @Ctx() ctx: RequestContext,
-        @Args() args: { faqIds: ID[] },
+        @Args() args: MutationRemoveFaqsFromCurrentChannelArgs,
     ): Promise<Faq[]> {
         return this.faqService.removeFromCurrentChannel(ctx, args.faqIds);
     }

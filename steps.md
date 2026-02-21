@@ -67,7 +67,9 @@ src/
 ├── index.ts                    # Barrel export (public API)
 ├── <name>.plugin.ts            # Main plugin class with @VendurePlugin
 ├── constants.ts                # Plugin option symbol, logger context, etc.
-├── types.ts                    # Options interface, custom types
+├── types.ts                    # Options interface (non-GraphQL types only)
+├── gql/
+│   └── generated.ts            # Auto-generated GraphQL types (gitignored)
 ├── api/
 │   ├── api-extensions.ts       # GraphQL schema (gql tagged template)
 │   ├── <name>.resolver.ts      # Mutation/Query resolvers
@@ -140,13 +142,69 @@ export { MyPluginOptions, SomeInterface } from './types';
 export { MyCustomError } from './errors/my.errors';
 ```
 
-## 6. Build the plugin
+## 6. Set up GraphQL codegen
+
+GraphQL input types and resolver args types are auto-generated, not manually defined.
+
+### Add the plugin to codegen config
+
+In `apps/dev-server/codegen.ts`, add an entry under `generates`:
+
+```ts
+generates: {
+    '../../packages/vendure-plugin-<name>/src/gql/generated.ts': {
+        plugins: ['typescript'],
+    },
+}
+```
+
+### Generate types
+
+```bash
+cd apps/dev-server
+npm run schema    # generates schema.graphql from Vendure config
+npm run codegen   # generates TypeScript types into plugin src/gql/
+```
+
+### Use generated types
+
+In resolvers, use the generated `Mutation*Args` and `Query*Args` types:
+
+```ts
+import { MutationCreateMyEntityArgs, QueryMyEntityArgs } from '../gql/generated';
+
+@Mutation()
+async createMyEntity(@Ctx() ctx: RequestContext, @Args() args: MutationCreateMyEntityArgs) {
+    return this.myService.create(ctx, args.input);
+}
+```
+
+In services, use the generated input types:
+
+```ts
+import { CreateMyEntityInput, UpdateMyEntityInput } from '../gql/generated';
+
+async create(ctx: RequestContext, input: CreateMyEntityInput) { ... }
+```
+
+**Do NOT manually define GraphQL input/args types in `types.ts`.** Only non-GraphQL
+config interfaces (e.g. `MyPluginOptions`) belong there.
+
+### When to regenerate
+
+Re-run `npm run schema && npm run codegen` (from `apps/dev-server/`) after:
+
+- Changing GraphQL schema extensions (`api-extensions.ts`)
+- Adding or changing custom fields
+- Updating Vendure version
+
+## 7. Build the plugin
 
 ```bash
 npm run build -w packages/vendure-plugin-<name>
 ```
 
-## 7. Wire into dev-server for testing
+## 8. Wire into dev-server for testing
 
 ### Add workspace dependency
 
@@ -169,7 +227,7 @@ plugins: [
 ]
 ```
 
-## 8. Migrations
+## 9. Migrations
 
 Plugins do NOT ship migrations. The consumer generates and runs migrations on their end.
 
@@ -188,7 +246,7 @@ If your plugin introduces custom fields or entities, document it in your README:
 - Entity/custom field changes = minor version bump minimum
 - Breaking DB changes = major version bump
 
-## 9. Publishing
+## 10. Publishing
 
 ```bash
 cd packages/vendure-plugin-<name>
@@ -206,7 +264,7 @@ npm publish --access public # scoped packages need --access public
 - [ ] Version bumped appropriately
 - [ ] No hardcoded secrets or dev-only code
 
-## 10. Versioning
+## 11. Versioning
 
 ```
 1.0.0 → initial release
