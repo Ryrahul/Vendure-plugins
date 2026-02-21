@@ -12,7 +12,7 @@ import {
     MutationRemoveFaqsFromCurrentChannelArgs,
     QueryFaqArgs,
     QueryFaqsArgs,
-} from '../gql/generated';
+} from '../generated-graphql-types';
 
 @Resolver()
 export class FaqAdminResolver {

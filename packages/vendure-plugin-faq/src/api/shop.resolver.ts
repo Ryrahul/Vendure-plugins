@@ -2,7 +2,7 @@ import { Args, Query, Resolver } from '@nestjs/graphql';
 import { Ctx, RequestContext } from '@vendure/core';
 
 import { FaqService } from '../services/faq.service';
-import { QueryFaqsArgs } from '../gql/generated';
+import { QueryFaqsArgs } from '../generated-graphql-types';
 
 @Resolver()
 export class FaqShopResolver {

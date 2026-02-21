@@ -68,8 +68,7 @@ src/
 ├── <name>.plugin.ts            # Main plugin class with @VendurePlugin
 ├── constants.ts                # Plugin option symbol, logger context, etc.
 ├── types.ts                    # Options interface (non-GraphQL types only)
-├── gql/
-│   └── generated.ts            # Auto-generated GraphQL types (gitignored)
+├── generated-graphql-types.ts  # Auto-generated GraphQL types (committed)
 ├── api/
 │   ├── api-extensions.ts       # GraphQL schema (gql tagged template)
 │   ├── <name>.resolver.ts      # Mutation/Query resolvers
@@ -144,34 +143,64 @@ export { MyCustomError } from './errors/my.errors';
 
 ## 6. Set up GraphQL codegen
 
-GraphQL input types and resolver args types are auto-generated, not manually defined.
+GraphQL input types and resolver args types are auto-generated per-plugin, not manually defined.
 
-### Add the plugin to codegen config
+### Add codegen files to the plugin
 
-In `apps/dev-server/codegen.ts`, add an entry under `generates`:
+Copy `vendure-schema-stub.graphql` from an existing plugin (e.g. `vendure-plugin-faq`).
 
-```ts
-generates: {
-    '../../packages/vendure-plugin-<name>/src/gql/generated.ts': {
-        plugins: ['typescript'],
-    },
+Create `codegen.yml` in the plugin root:
+
+```yaml
+schema:
+  - 'vendure-schema-stub.graphql'
+  - 'src/**/*.ts'
+generates:
+  ./src/generated-graphql-types.ts:
+    plugins:
+      - typescript
+    config:
+      maybeValue: 'T | undefined'
+      inputMaybeValue: 'T | undefined'
+      scalars:
+        DateTime: Date
+        Money: number
+        LanguageCode: import('@vendure/common/lib/generated-types').LanguageCode
+      namingConvention:
+        enumValues: keep
+      avoidOptionals: false
+```
+
+Add devDependencies and scripts to `package.json`:
+
+```json
+{
+  "scripts": {
+    "generate": "graphql-codegen --config codegen.yml",
+    "build": "npm run generate && tsc"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.1.1",
+    "@graphql-codegen/typescript": "^5.0.8"
+  }
 }
 ```
 
 ### Generate types
 
 ```bash
-cd apps/dev-server
-npm run schema    # generates schema.graphql from Vendure config
-npm run codegen   # generates TypeScript types into plugin src/gql/
+cd packages/vendure-plugin-<name>
+npm run generate    # generates src/generated-graphql-types.ts
 ```
+
+This also runs automatically on `npm run build`.
 
 ### Use generated types
 
 In resolvers, use the generated `Mutation*Args` and `Query*Args` types:
 
 ```ts
-import { MutationCreateMyEntityArgs, QueryMyEntityArgs } from '../gql/generated';
+import { MutationCreateMyEntityArgs, QueryMyEntityArgs } from '../generated-graphql-types';
 
 @Mutation()
 async createMyEntity(@Ctx() ctx: RequestContext, @Args() args: MutationCreateMyEntityArgs) {
@@ -182,7 +211,7 @@ async createMyEntity(@Ctx() ctx: RequestContext, @Args() args: MutationCreateMyE
 In services, use the generated input types:
 
 ```ts
-import { CreateMyEntityInput, UpdateMyEntityInput } from '../gql/generated';
+import { CreateMyEntityInput, UpdateMyEntityInput } from '../generated-graphql-types';
 
 async create(ctx: RequestContext, input: CreateMyEntityInput) { ... }
 ```
@@ -192,11 +221,11 @@ config interfaces (e.g. `MyPluginOptions`) belong there.
 
 ### When to regenerate
 
-Re-run `npm run schema && npm run codegen` (from `apps/dev-server/`) after:
+Happens automatically on build. To regenerate manually:
 
-- Changing GraphQL schema extensions (`api-extensions.ts`)
-- Adding or changing custom fields
-- Updating Vendure version
+```bash
+npm run generate -w packages/vendure-plugin-<name>
+```
 
 ## 7. Build the plugin
 

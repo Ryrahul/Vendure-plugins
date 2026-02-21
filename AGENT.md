@@ -24,14 +24,15 @@ Root structure:
 │   │    │    ├── resolvers/
 │   │    │    ├── subscribers/
 │   │    │    ├── migrations/
-│   │    │    ├── gql/
-│   │    │    │    └── generated.ts    (auto-generated, gitignored)
+│   │    │    ├── generated-graphql-types.ts (auto-generated, committed)
 │   │    │    ├── dashboard/          (React Dashboard extension)
 │   │    │    │    ├── index.tsx
 │   │    │    │    ├── routes.tsx
 │   │    │    │    └── components/
 │   │    │    └── index.ts
 │   │    │
+│   │    ├── vendure-schema-stub.graphql  (Vendure core type stubs)
+│   │    ├── codegen.yml                  (per-plugin codegen config)
 │   │    ├── dist/                    (compiled backend only)
 │   │    ├── package.json
 │   │    ├── tsconfig.json
@@ -43,7 +44,6 @@ Root structure:
 │   └── dev-server/
 │        ├── src/
 │        │    └── vendure-config.ts
-│        ├── codegen.ts               (GraphQL codegen config)
 │        ├── schema.graphql           (auto-generated, gitignored)
 │        ├── package.json
 │        └── tsconfig.json
@@ -190,51 +190,71 @@ They are bundled by host Vite.
 ============================================================
 
 GraphQL input types, args types, and query/mutation types
-are auto-generated from the schema using @graphql-codegen.
+are auto-generated from the plugin's own schema using @graphql-codegen.
 
-Infrastructure lives in apps/dev-server:
+Each plugin is self-contained for codegen:
 
-- codegen.ts        → codegen configuration
-- schema.graphql    → generated schema file (gitignored)
-
-Generated output goes into each plugin:
-
-- packages/<plugin>/src/gql/generated.ts (gitignored)
+- codegen.yml                    → per-plugin codegen config
+- vendure-schema-stub.graphql    → stub definitions for Vendure core types
+- src/generated-graphql-types.ts → generated output (committed to git)
 
 Workflow:
 
-1. cd apps/dev-server
-2. npm run schema       → generates schema.graphql from Vendure config
-3. npm run codegen      → generates TypeScript types into plugin src/gql/
+1. cd packages/vendure-plugin-<name>
+2. npm run generate   → generates src/generated-graphql-types.ts
+
+The build script runs generate automatically:
+  "build": "npm run generate && tsc"
 
 When to regenerate:
 
 - After adding/changing GraphQL schema extensions (api-extensions.ts)
-- After adding/changing custom fields
-- After updating Vendure version
+- Happens automatically on build
 
 Rules:
 
 - NEVER manually define GraphQL input/args types in plugin code.
-  Import them from '../gql/generated' instead.
+  Import them from '../generated-graphql-types' instead.
 - Plugin-specific config interfaces (e.g. FaqPluginOptions) that are
   NOT part of the GraphQL schema should still live in types.ts.
-- schema.graphql and generated.ts are gitignored. Each developer
-  must regenerate locally after cloning.
+- The generated file IS committed to git (it is small, plugin-specific).
 - The codegen config uses maybeValue: 'T | undefined' to match
   Vendure core's convention (not T | null).
-- When adding a new plugin to codegen, add an entry in
-  apps/dev-server/codegen.ts under the generates section.
+- LanguageCode is mapped as a scalar to the @vendure/common import
+  to avoid enum conflicts with Vendure core.
 
-Adding a new plugin to codegen:
+Setting up codegen for a new plugin:
 
-In apps/dev-server/codegen.ts, add:
+1. Copy vendure-schema-stub.graphql from an existing plugin.
 
-generates: {
-    '../../packages/vendure-plugin-<name>/src/gql/generated.ts': {
-        plugins: ['typescript'],
-    },
-}
+2. Create codegen.yml in the plugin root:
+
+schema:
+  - 'vendure-schema-stub.graphql'
+  - 'src/**/*.ts'
+generates:
+  ./src/generated-graphql-types.ts:
+    plugins:
+      - typescript
+    config:
+      maybeValue: 'T | undefined'
+      inputMaybeValue: 'T | undefined'
+      scalars:
+        DateTime: Date
+        Money: number
+        LanguageCode: import('@vendure/common/lib/generated-types').LanguageCode
+      namingConvention:
+        enumValues: keep
+
+3. Add devDependencies and scripts to package.json:
+
+devDependencies:
+  "@graphql-codegen/cli": "^6.1.1"
+  "@graphql-codegen/typescript": "^5.0.8"
+
+scripts:
+  "generate": "graphql-codegen --config codegen.yml"
+  "build": "npm run generate && tsc"
 
 ============================================================
 7. MIGRATION RULES

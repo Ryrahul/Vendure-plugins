@@ -1,6 +1,6 @@
 {
   "name": "@rahul_vendure/vendure-plugin-faq",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Vendure plugin for managing FAQs with i18n, channel support, and dashboard UI",
   "exports": {
     "./package.json": "./package.json",
@@ -23,7 +23,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "generate": "graphql-codegen --config codegen.yml",
+    "build": "npm run generate && tsc",
     "watch": "tsc -w",
     "prepublishOnly": "npm run build"
   },
@@ -37,5 +38,9 @@
     "frequently-asked-questions",
     "cms"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.1.1",
+    "@graphql-codegen/typescript": "^5.0.8"
+  }
 }
