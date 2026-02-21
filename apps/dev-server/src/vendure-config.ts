@@ -12,6 +12,7 @@ import { GraphiqlPlugin } from '@vendure/graphiql-plugin';
 import { PhoneAuthPlugin, ConsoleSmsProvider } from '@rahul_vendure/vendure-plugin-phone-auth';
 import { WishlistPlugin } from '@rahul_vendure/vendure-plugin-wishlist';
 import { FaqPlugin } from '@rahul_vendure/vendure-plugin-faq';
+import { ExtraPromotionsPlugin } from '@rahul_vendure/vendure-plugin-extra-promotions';
 import { SwiftSmsProvider } from './providers/swift-sms.provider';
 import 'dotenv/config';
 import path from 'path';
@@ -107,5 +108,6 @@ export const config: VendureConfig = {
         }),
         WishlistPlugin.init(),
         FaqPlugin.init(),
+        ExtraPromotionsPlugin,
     ],
 };

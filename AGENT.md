@@ -31,6 +31,7 @@ Root structure:
 │   │    │    │    └── components/
 │   │    │    └── index.ts
 │   │    │
+│   │    ├── index.ts                    (root barrel, re-exports src/index)
 │   │    ├── vendure-schema-stub.graphql  (Vendure core type stubs)
 │   │    ├── codegen.yml                  (per-plugin codegen config)
 │   │    ├── dist/                    (compiled backend only)
@@ -295,6 +296,31 @@ Example dependency:
 "@rahul/vendure-plugin-stripe": "*"
 
 Dev server must never be published.
+
+DASHBOARD EXTENSION DISCOVERY (workspace workaround):
+
+Vendure's built-in vendureDashboardPlugin discovers dashboard
+extensions by scanning compiled .js files for __decorate calls
+with a `dashboard` property. In npm workspace monorepos, symlinked
+packages are excluded from the scan patterns, so their dashboard
+metadata is never found.
+
+apps/dev-server/vite.config.mts contains a custom Vite plugin
+`workspaceDashboardExtensions()` that fixes this by dynamically
+scanning all packages under packages/ for src/dashboard/index.tsx
+and injecting them into the virtual:dashboard-extensions module.
+
+This is fully automatic: when adding a new plugin with a dashboard,
+just ensure src/dashboard/index.tsx exists in the plugin package.
+No manual registration is needed.
+
+Each plugin that has a dashboard MUST also have a root-level
+index.ts barrel file (re-exporting from ./src/index) so that
+the Vendure source walker can follow the import chain for local
+plugin detection:
+
+    // packages/<plugin-name>/index.ts
+    export * from './src/index';
 
 ============================================================
 9. PUBLISHING WORKFLOW
