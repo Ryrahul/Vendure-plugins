@@ -9,6 +9,8 @@ import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from '@ven
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
 import { DashboardPlugin } from '@vendure/dashboard/plugin';
 import { GraphiqlPlugin } from '@vendure/graphiql-plugin';
+import { PhoneAuthPlugin, ConsoleSmsProvider } from '@rahul/vendure-plugin-phone-auth';
+import { SwiftSmsProvider } from './providers/swift-sms.provider';
 import 'dotenv/config';
 import path from 'path';
 
@@ -90,6 +92,16 @@ export const config: VendureConfig = {
             appDir: IS_DEV
                 ? path.join(__dirname, '../dist/dashboard')
                 : path.join(__dirname, 'dashboard'),
+        }),
+        PhoneAuthPlugin.init({
+            smsProvider:
+                 new SwiftSmsProvider({
+                    baseUrl: process.env.SWIFT_SMS_BASE_URL!,
+                    username: process.env.SWIFT_SMS_USERNAME!,
+                    password: process.env.SWIFT_SMS_PASSWORD!,
+                    orgCode: process.env.SWIFT_SMS_ORG_CODE!,
+                }),
+            devMode: false,
         }),
     ],
 };

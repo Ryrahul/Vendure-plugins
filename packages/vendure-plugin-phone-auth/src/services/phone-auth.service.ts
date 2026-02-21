@@ -7,15 +7,12 @@ import {
     ExternalAuthenticationMethod,
     ExternalAuthenticationService,
     InternalServerError,
-    Logger,
-    NativeAuthenticationMethod,
     patchEntity,
     RequestContext,
     setSessionToken,
     TransactionalConnection,
     User,
     UserInputError,
-    UserService,
 } from '@vendure/core';
 import { getUserChannelsPermissions } from '@vendure/core/dist/service/helpers/utils/get-user-channels-permissions';
 import { NotVerifiedError } from '@vendure/core/dist/common/error/generated-graphql-shop-errors';
@@ -39,7 +36,6 @@ export class PhoneAuthService {
         private customerService: CustomerService,
         private configService: ConfigService,
         private authService: AuthService,
-        private userService: UserService,
         private externalAuthenticationService: ExternalAuthenticationService,
         private phoneOtpService: PhoneOtpService,
         @Inject(PHONE_AUTH_PLUGIN_OPTIONS)
@@ -93,7 +89,7 @@ export class PhoneAuthService {
             );
 
             if (!user) {
-                // Auto-create account
+                // Auto-create account via external auth (phone strategy)
                 const syntheticEmail = this.buildSyntheticEmail(input.phoneNumber);
                 user = await this.externalAuthenticationService.createCustomerAndUser(txCtx, {
                     strategy: AUTHENTICATION_STRATEGY_NAME,
@@ -103,20 +99,6 @@ export class PhoneAuthService {
                     firstName: '',
                     lastName: '',
                 });
-
-                // Ensure native auth method exists (some Vendure internals expect it)
-                const hasNative = user.authenticationMethods.some(
-                    (m): m is NativeAuthenticationMethod => m instanceof NativeAuthenticationMethod,
-                );
-                if (!hasNative) {
-                    const dummyPassword = `otp-only-${Date.now()}-${Math.random()}`;
-                    await this.userService.addNativeAuthenticationMethod(
-                        txCtx,
-                        user,
-                        syntheticEmail,
-                        dummyPassword,
-                    );
-                }
 
                 // Set phone number on customer
                 const customer = await this.customerService.findOneByUserId(txCtx, user.id);
@@ -179,9 +161,8 @@ export class PhoneAuthService {
             return new PhoneNumberValidationError();
         }
 
-        const currentUser = await this.userService.getUserById(ctx, ctx.activeUserId!);
-        if (!currentUser) {
-            throw new UserInputError('User not found');
+        if (!ctx.activeUserId) {
+            throw new UserInputError('User not authenticated');
         }
 
         // Check if phone is already taken by another user
@@ -191,7 +172,7 @@ export class PhoneAuthService {
             newPhoneNumber,
             false,
         );
-        if (existing && existing.id !== currentUser.id) {
+        if (existing && existing.id !== ctx.activeUserId) {
             return new PhoneNumberConflictError();
         }
 

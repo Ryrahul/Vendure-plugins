@@ -17,11 +17,13 @@
     "populate": "ts-node ./src/populate.ts"
   },
   "dependencies": {
+    "@rahul/vendure-plugin-phone-auth": "*",
     "@vendure/asset-server-plugin": "3.5.4",
     "@vendure/core": "3.5.4",
     "@vendure/dashboard": "3.5.4",
     "@vendure/email-plugin": "3.5.4",
     "@vendure/graphiql-plugin": "3.5.4",
+    "axios": "^1.13.5",
     "dotenv": "17.2.3",
     "pg": "^8.18.0"
   },
