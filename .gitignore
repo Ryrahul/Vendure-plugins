@@ -1,0 +1,26 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts.map
+
+# Dev server assets & data
+apps/dev-server/src/assets/
+apps/dev-server/src/test-emails/
+apps/dev-server/vendure.sqlite
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tsbuildinfo

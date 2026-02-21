@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "module": "Node16",
+    "moduleResolution": "node16"
+  },
+  "include": ["src", "mock-data"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/plugins/**/dashboard/*",
+    "src/gql/*",
+    "vite.*.*ts"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.dashboard.json"
+    }
+  ]
+}
