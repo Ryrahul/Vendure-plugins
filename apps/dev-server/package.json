@@ -17,7 +17,9 @@
     "populate": "ts-node ./src/populate.ts"
   },
   "dependencies": {
-    "@rahul/vendure-plugin-phone-auth": "*",
+    "@rahul_vendure/vendure-plugin-phone-auth": "*",
+    "@rahul_vendure/vendure-plugin-faq": "*",
+    "@rahul_vendure/vendure-plugin-wishlist": "*",
     "@vendure/asset-server-plugin": "3.5.4",
     "@vendure/core": "3.5.4",
     "@vendure/dashboard": "3.5.4",

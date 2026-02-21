@@ -14,7 +14,7 @@ mkdir -p packages/vendure-plugin-<name>/src/{api,services,entities,errors,migrat
 
 ```json
 {
-  "name": "@rahul/vendure-plugin-<name>",
+  "name": "@rahul_vendure/vendure-plugin-<name>",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -153,7 +153,7 @@ npm run build -w packages/vendure-plugin-<name>
 In `apps/dev-server/package.json`:
 
 ```json
-"@rahul/vendure-plugin-<name>": "*"
+"@rahul_vendure/vendure-plugin-<name>": "*"
 ```
 
 Then run `npm install` from root to symlink it.
@@ -161,7 +161,7 @@ Then run `npm install` from root to symlink it.
 ### Add to vendure-config.ts
 
 ```ts
-import { MyPlugin } from '@rahul/vendure-plugin-<name>';
+import { MyPlugin } from '@rahul_vendure/vendure-plugin-<name>';
 
 plugins: [
     // ...existing plugins
@@ -169,24 +169,24 @@ plugins: [
 ]
 ```
 
-## 8. If the plugin has entities (needs migrations)
+## 8. Migrations
 
-1. Start dev-server with `synchronize: true` first to let tables create
-2. Then generate migration:
-   ```bash
-   npx vendure migrate -w apps/dev-server
-   ```
-3. Move the generated file to `packages/vendure-plugin-<name>/src/migrations/`
-4. Reference in plugin:
-   ```ts
-   config.dbConnectionOptions.migrations?.push(
-       ...glob.sync(path.join(__dirname, 'migrations/*.js'))
-   );
-   ```
-5. Set `synchronize: false` and run migrations going forward
-6. Always reference `.js` in production, never `.ts`
-7. Entity changes = minor version bump minimum
-8. Breaking DB changes = major version bump
+Plugins do NOT ship migrations. The consumer generates and runs migrations on their end.
+
+If your plugin introduces custom fields or entities, document it in your README:
+
+```markdown
+> **Important:** If your project has `synchronize: false`, you need to generate
+> and run a database migration after adding this plugin:
+>
+> ```bash
+> npx vendure migrate
+> ```
+```
+
+**Versioning rules for schema changes:**
+- Entity/custom field changes = minor version bump minimum
+- Breaking DB changes = major version bump
 
 ## 9. Publishing
 

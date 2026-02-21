@@ -9,7 +9,9 @@ import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from '@ven
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
 import { DashboardPlugin } from '@vendure/dashboard/plugin';
 import { GraphiqlPlugin } from '@vendure/graphiql-plugin';
-import { PhoneAuthPlugin, ConsoleSmsProvider } from '@rahul/vendure-plugin-phone-auth';
+import { PhoneAuthPlugin, ConsoleSmsProvider } from '@rahul_vendure/vendure-plugin-phone-auth';
+import { WishlistPlugin } from '@rahul_vendure/vendure-plugin-wishlist';
+import { FaqPlugin } from '@rahul_vendure/vendure-plugin-faq';
 import { SwiftSmsProvider } from './providers/swift-sms.provider';
 import 'dotenv/config';
 import path from 'path';
@@ -103,5 +105,7 @@ export const config: VendureConfig = {
                 }),
             devMode: false,
         }),
+        WishlistPlugin.init(),
+        FaqPlugin.init(),
     ],
 };

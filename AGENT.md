@@ -185,22 +185,16 @@ They are bundled by host Vite.
 6. MIGRATION RULES
 ============================================================
 
-If plugin defines:
-- Entities
-- Custom tables
-- Relations
+Plugins do NOT ship migrations.
+Migrations are the consumer's responsibility.
 
-Then:
+If a plugin introduces custom fields or entities, the consumer
+must generate and run migrations on their end:
 
-1. Migrations are generated from dev-server using Vendure CLI.
-2. Migration files must be moved into:
-   packages/<plugin>/src/migrations/
-3. Migrations must compile into dist.
-4. Plugin decorator must reference compiled JS:
+npx vendure migrate
 
-migrations: [path.join(__dirname, 'migrations/*.js')]
-
-NEVER reference .ts in production.
+The plugin README must document any schema changes clearly
+so consumers know to run migrations.
 
 When schema changes:
 - Minor version bump minimum.

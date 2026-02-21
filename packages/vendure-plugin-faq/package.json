@@ -1,0 +1,41 @@
+{
+  "name": "@rahul_vendure/vendure-plugin-faq",
+  "version": "1.0.2",
+  "description": "Vendure plugin for managing FAQs with i18n, channel support, and dashboard UI",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./dashboard": {
+      "types": "./src/dashboard/index.tsx",
+      "import": "./src/dashboard/index.tsx",
+      "default": "./src/dashboard/index.tsx"
+    }
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "src/dashboard/**/*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@vendure/core": "^3.0.0"
+  },
+  "keywords": [
+    "vendure",
+    "vendure-plugin",
+    "faq",
+    "frequently-asked-questions",
+    "cms"
+  ],
+  "license": "MIT"
+}

@@ -1,7 +1,7 @@
 {
-  "name": "@rahul_vendure/vendure-plugin-phone-auth",
-  "version": "1.0.3",
-  "description": "Vendure plugin for phone number + OTP authentication with configurable SMS provider",
+  "name": "@rahul_vendure/vendure-plugin-wishlist",
+  "version": "1.0.1",
+  "description": "Vendure plugin for customer wishlists with bulk add/remove support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -16,15 +16,11 @@
   "peerDependencies": {
     "@vendure/core": "^3.0.0"
   },
-  "dependencies": {
-    "libphonenumber-js": "^1.12.8"
-  },
   "keywords": [
     "vendure",
     "vendure-plugin",
-    "phone-auth",
-    "otp",
-    "sms"
+    "wishlist",
+    "favorites"
   ],
   "license": "MIT"
 }

@@ -1,5 +1,5 @@
 import { RequestContext } from '@vendure/core';
-import { SmsProvider } from '@rahul/vendure-plugin-phone-auth';
+import { SmsProvider } from '@rahul_vendure/vendure-plugin-phone-auth';
 import axios, { AxiosInstance } from 'axios';
 
 export interface SwiftSmsProviderOptions {
