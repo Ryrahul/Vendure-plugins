@@ -17,6 +17,8 @@ import { defineConfig, Plugin } from 'vite';
  * in your package — it will be picked up automatically.
  */
 function workspaceDashboardExtensions(): Plugin {
+    // Must match @vendure/dashboard's vite-plugin-dashboard-metadata.js:
+    // virtualModuleId = 'virtual:dashboard-extensions', resolved = '\0' + virtualModuleId
     const resolvedId = `\0virtual:dashboard-extensions`;
     const packagesDir = resolve(__dirname, '../../packages');
 
