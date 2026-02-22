@@ -273,7 +273,8 @@ export class PhoneAuthService {
     }
 
     private buildSyntheticEmail(phoneNumber: string): string {
-        return `${phoneNumber}+noreply@phone-auth.vendure`;
+        const domain = this.options.syntheticEmailDomain ?? 'phone-auth.local';
+        return `${phoneNumber}+noreply@${domain}`;
     }
 
     private rebuildSyntheticEmailIfNeeded(

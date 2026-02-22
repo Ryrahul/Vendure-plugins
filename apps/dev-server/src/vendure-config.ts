@@ -105,6 +105,8 @@ export const config: VendureConfig = {
                     orgCode: process.env.SWIFT_SMS_ORG_CODE!,
                 }),
             devMode: false,
+            syntheticEmailDomain: 'lodu-prasad',
+            messageTemplate: 'Your heroo code is: {code}',
         }),
         WishlistPlugin.init(),
         FaqPlugin.init(),

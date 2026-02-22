@@ -75,4 +75,13 @@ export interface PhoneAuthPluginOptions {
      * @default false
      */
     devMode?: boolean;
+
+    /**
+     * The domain used for synthetic email addresses generated for phone-only users.
+     * Vendure requires every customer to have an email, so this plugin generates
+     * a deterministic fake email from the phone number (e.g. `+1234567890+noreply@phone-auth.local`).
+     *
+     * @default 'phone-auth.local'
+     */
+    syntheticEmailDomain?: string;
 }
