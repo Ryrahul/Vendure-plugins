@@ -10,9 +10,11 @@ export { minStockLevelCondition } from './conditions/min-stock-level-condition';
 export { timeRangeCondition } from './conditions/time-range-condition';
 export { weekdayCondition } from './conditions/weekday-condition';
 export { crossSellCondition } from './conditions/cross-sell-condition';
+export { happyHoursCollectionCondition } from './conditions/happy-hours-collection-condition';
 
 // Actions
 export { collectionDiscountAction } from './actions/collection-discount-action';
 export { excludeCollectionDiscountAction } from './actions/exclude-collection-discount-action';
 export { crossSellDiscountAction } from './actions/cross-sell-discount-action';
 export { stockClearanceDiscountAction } from './actions/stock-clearance-discount-action';
+export { happyHoursCollectionDiscountAction } from './actions/happy-hours-collection-discount-action';

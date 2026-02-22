@@ -1,6 +1,6 @@
 {
   "name": "@rahul_vendure/vendure-plugin-extra-promotions",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Extra promotion conditions and actions for Vendure: first-order, collection-based, stock-level, time-range, weekday, cross-sell and more.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -37,7 +37,8 @@
     "discounts",
     "cross-sell",
     "stock-clearance",
-    "collection-discount"
+    "collection-discount",
+    "happy-hour"
   ],
   "license": "MIT"
 }
