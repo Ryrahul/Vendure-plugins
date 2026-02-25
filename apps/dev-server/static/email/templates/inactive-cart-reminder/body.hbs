@@ -1,0 +1,114 @@
+<mjml>
+  <mj-head>
+    <mj-attributes>
+      <mj-all font-family="Arial, sans-serif" />
+      <mj-text font-size="15px" color="#333333" line-height="1.6" />
+    </mj-attributes>
+    <mj-style>
+      .item { border-bottom: 1px solid #eeeeee; padding: 8px 0; }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#f4f4f4">
+
+    <!-- Header -->
+    <mj-section background-color="#1a1a2e" padding="24px 0">
+      <mj-column>
+        <mj-text
+          align="center"
+          color="#ffffff"
+          font-size="22px"
+          font-weight="bold"
+        >
+          Your Store
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Hero -->
+    <mj-section background-color="#ffffff" padding="40px 24px 24px">
+      <mj-column>
+        <mj-text
+          font-size="24px"
+          font-weight="bold"
+          color="#1a1a2e"
+          align="center"
+        >
+          You left something behind 🛒
+        </mj-text>
+        <mj-text align="center" color="#666666">
+          Hi
+          {{customerName}}, you still have items waiting in your cart.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Order Info -->
+    <mj-section background-color="#ffffff" padding="0 24px">
+      <mj-column border="1px solid #eeeeee" border-radius="8px" padding="16px">
+        <mj-text font-size="13px" color="#999999" align="center">
+          ORDER ID
+        </mj-text>
+        <mj-text
+          font-size="18px"
+          font-weight="bold"
+          color="#1a1a2e"
+          align="center"
+        >
+          #{{orderId}}
+        </mj-text>
+        <mj-text font-size="13px" color="#999999" align="center">
+          Saved on
+          {{date}}
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Product Names -->
+    <mj-section background-color="#ffffff" padding="24px">
+      <mj-column>
+        <mj-text font-size="18px" font-weight="bold" color="#1a1a2e">
+          Items in your cart
+        </mj-text>
+        {{#each orderItems}}
+          <mj-text css-class="item">
+            •
+            {{this}}
+          </mj-text>
+        {{/each}}
+      </mj-column>
+    </mj-section>
+
+    <!-- CTA -->
+    <mj-section background-color="#ffffff" padding="24px">
+      <mj-column>
+        <mj-button
+          background-color="#1a1a2e"
+          color="#ffffff"
+          border-radius="6px"
+          font-size="15px"
+          font-weight="bold"
+          padding="14px 32px"
+          href="{{shopUrl}}/vendurehq "
+        >
+          Return to Cart
+        </mj-button>
+      </mj-column>
+    </mj-section>
+
+    <!-- Footer -->
+    <mj-section background-color="#f4f4f4" padding="24px">
+      <mj-column>
+        <mj-text align="center" font-size="12px" color="#aaaaaa">
+          You're receiving this email because you have an open cart at
+          <a href="{{shopUrl}}" style="color:#aaaaaa;">{{shopUrl}}</a>.
+        </mj-text>
+        <mj-text align="center" font-size="12px" color="#aaaaaa">
+          ©
+          {{date}}
+          Your Store. All rights reserved.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+  </mj-body>
+</mjml>
