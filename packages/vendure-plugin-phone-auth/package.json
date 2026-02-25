@@ -1,6 +1,6 @@
 {
   "name": "@rahul_vendure/vendure-plugin-phone-auth",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Vendure plugin for phone number + OTP authentication with configurable SMS provider",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

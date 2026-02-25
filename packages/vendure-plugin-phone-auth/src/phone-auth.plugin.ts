@@ -68,6 +68,7 @@ export class PhoneAuthPlugin implements OnApplicationBootstrap {
             otpLength: 6,
             messageTemplate: 'Your verification code is: {code}',
             devMode: false,
+            syntheticEmailDomain: 'phone-auth.local',
             ...options,
         };
         return PhoneAuthPlugin;

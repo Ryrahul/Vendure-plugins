@@ -1,7 +1,9 @@
 {
-  "name": "@rahul_vendure/vendure-plugin-faq",
-  "version": "1.0.7",
-  "description": "Vendure plugin for managing FAQs with i18n, channel support, and dashboard UI",
+  "name": "@rahul_vendure/vendure-plugin-extra-promotions",
+  "version": "1.1.0",
+  "description": "Extra promotion conditions and actions for Vendure: first-order, collection-based, stock-level, time-range, weekday, cross-sell and more.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -15,16 +17,13 @@
       "default": "./src/dashboard/index.tsx"
     }
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "files": [
     "dist/**/*",
     "src/dashboard/**/*",
     "README.md"
   ],
   "scripts": {
-    "generate": "graphql-codegen --config codegen.yml",
-    "build": "npm run generate && tsc",
+    "build": "tsc",
     "watch": "tsc -w",
     "prepublishOnly": "npm run build"
   },
@@ -34,13 +33,12 @@
   "keywords": [
     "vendure",
     "vendure-plugin",
-    "faq",
-    "frequently-asked-questions",
-    "cms"
+    "promotions",
+    "discounts",
+    "cross-sell",
+    "stock-clearance",
+    "collection-discount",
+    "happy-hour"
   ],
-  "license": "MIT",
-  "devDependencies": {
-    "@graphql-codegen/cli": "^6.1.1",
-    "@graphql-codegen/typescript": "^5.0.8"
-  }
+  "license": "MIT"
 }
