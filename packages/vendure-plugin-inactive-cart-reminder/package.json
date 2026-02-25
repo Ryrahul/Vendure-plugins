@@ -1,0 +1,31 @@
+{
+  "name": "@rahul_vendure/vendure-plugin-inactive-cart-reminder",
+  "version": "1.0.0",
+  "description": "Vendure plugin for Sending Reminder Email for inactive cart",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "README.md"
+  ],
+  "scripts": {
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "build": "tsc"
+  },
+  "peerDependencies": {
+    "@vendure/core": "^3.0.0",
+    "@vendure/email-plugin": "^3.0.0"
+  },
+  "devDependencies": {
+    "@vendure/core": "^3.5.4",
+    "@vendure/email-plugin": "^3.5.4"
+  },
+  "keywords": [
+    "vendure",
+    "vendure-plugin",
+    "reminder",
+    "cart"
+  ],
+  "license": "MIT"
+}
