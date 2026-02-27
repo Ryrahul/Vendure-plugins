@@ -77,7 +77,21 @@ export const config: VendureConfig = {
         MeilisearchPlugin.init({
             host: process.env.MEILISEARCH_HOST || 'http://localhost:7700',
             apiKey: process.env.MEILISEARCH_API_KEY || '',
-            bufferUpdates: false,
+            ai: {
+                embedders: {
+                    'default': {
+                        source: 'openAi',
+                        model: 'text-embedding-3-small',
+                        apiKey: process.env.OPENAI_API_KEY || '',
+                        documentTemplate: "A product called '{{doc.productName}}' - {{doc.description | truncatewords: 20}}",
+                    },
+                },
+                semanticRatio: 0.5,
+            },
+            synonyms: {
+                phone: ['mobile', 'smartphone'],
+            },
+            stopWords: ['the', 'a', 'an'],
         }),
         EmailPlugin.init({
             devMode: true,

@@ -23,6 +23,11 @@ mcp.json
 .DS_Store
 Thumbs.db
 
+# Internal docs (not for repo)
+AGENT.md
+steps.md
+MEILISEARCH.md
+
 # Build artifacts
 *.tsbuildinfo
 
