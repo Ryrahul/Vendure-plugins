@@ -1,0 +1,40 @@
+{
+  "name": "@rahul_vendure/vendure-meilli-search",
+  "version": "1.0.0",
+  "description": "Vendure plugin for Meilisearch-powered product search with AI hybrid search support",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "meilisearch": "^0.55.0",
+    "deepmerge": "^4.3.1"
+  },
+  "peerDependencies": {
+    "@vendure/core": "^3.0.0",
+    "@vendure/common": "^3.0.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/graphql": "^13.0.0",
+    "@nestjs/terminus": "^11.0.0",
+    "graphql": "^16.0.0",
+    "graphql-tag": "^2.0.0",
+    "rxjs": "^7.0.0",
+    "typeorm": "^0.3.0"
+  },
+  "keywords": [
+    "vendure",
+    "vendure-plugin",
+    "meilisearch",
+    "search",
+    "full-text-search",
+    "ai-search"
+  ],
+  "license": "MIT"
+}

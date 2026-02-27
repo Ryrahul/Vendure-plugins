@@ -2,7 +2,6 @@ import {
     dummyPaymentHandler,
     DefaultJobQueuePlugin,
     DefaultSchedulerPlugin,
-    DefaultSearchPlugin,
     VendureConfig,
 } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from '@vendure/email-plugin';
@@ -13,6 +12,7 @@ import { PhoneAuthPlugin, ConsoleSmsProvider } from '@rahul_vendure/vendure-plug
 import { WishlistPlugin } from '@rahul_vendure/vendure-plugin-wishlist';
 import { FaqPlugin } from '@rahul_vendure/vendure-plugin-faq';
 import { ExtraPromotionsPlugin } from '@rahul_vendure/vendure-plugin-extra-promotions';
+import { MeilisearchPlugin } from '@rahul_vendure/vendure-meilli-search';
 import { SwiftSmsProvider } from './providers/swift-sms.provider';
 import 'dotenv/config';
 import path from 'path';
@@ -74,7 +74,11 @@ export const config: VendureConfig = {
         }),
         DefaultSchedulerPlugin.init(),
         DefaultJobQueuePlugin.init({ useDatabaseForBuffer: true }),
-        DefaultSearchPlugin.init({ bufferUpdates: false, indexStockStatus: true }),
+        MeilisearchPlugin.init({
+            host: process.env.MEILISEARCH_HOST || 'http://localhost:7700',
+            apiKey: process.env.MEILISEARCH_API_KEY || '',
+            bufferUpdates: false,
+        }),
         EmailPlugin.init({
             devMode: true,
             outputPath: path.join(__dirname, '../static/email/test-emails'),
@@ -111,5 +115,6 @@ export const config: VendureConfig = {
         WishlistPlugin.init(),
         FaqPlugin.init(),
         ExtraPromotionsPlugin,
+   
     ],
 };

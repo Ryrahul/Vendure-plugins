@@ -53,6 +53,11 @@ PhoneAuthPlugin.init({
 
     // Dev mode: OTP is always 123456, no SMS sent (default: false)
     devMode: false,
+
+    // Domain for synthetic email addresses (default: 'phone-auth.local')
+    // Vendure requires every customer to have an email. Since this plugin uses
+    // phone-only auth, it generates a fake email like: +1234567890+noreply@phone-auth.local
+    syntheticEmailDomain: 'phone-auth.local',
 });
 ```
 
