@@ -85,83 +85,311 @@ export const initialData: InitialData = {
         },
     ],
     collections: [
+        // ── Electronics ──
         {
             name: 'Electronics',
-            filters: [
-                {
-                    code: 'facet-value-filter',
-                    args: { facetValueNames: ['Electronics'], containsAny: false },
-                },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Electronics'], containsAny: false } }],
             assetPaths: ['jakob-owens-274337-unsplash.jpg'],
         },
         {
             name: 'Computers',
-            filters: [
-                { code: 'facet-value-filter', args: { facetValueNames: ['Computers'], containsAny: false } },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Computers'], containsAny: false } }],
             parentName: 'Electronics',
             assetPaths: ['alexandru-acea-686569-unsplash.jpg'],
         },
         {
             name: 'Camera & Photo',
-            filters: [
-                { code: 'facet-value-filter', args: { facetValueNames: ['Photo'], containsAny: false } },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Photo'], containsAny: false } }],
             parentName: 'Electronics',
             assetPaths: ['eniko-kis-663725-unsplash.jpg'],
         },
         {
+            name: 'Audio',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Audio'], containsAny: false } }],
+            parentName: 'Electronics',
+            assetPaths: ['juan-gomez-674574-unsplash.jpg'],
+        },
+        {
+            name: 'Smart Home',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Smart Home'], containsAny: false } }],
+            parentName: 'Electronics',
+            assetPaths: ['florian-klauer-14840-unsplash.jpg'],
+        },
+        {
+            name: 'Wearables',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Wearables'], containsAny: false } }],
+            parentName: 'Electronics',
+            assetPaths: ['chuttersnap-584518-unsplash.jpg'],
+        },
+        {
+            name: 'Gaming',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Gaming'], containsAny: false } }],
+            parentName: 'Electronics',
+            assetPaths: ['florian-olivo-1166419-unsplash.jpg'],
+        },
+        {
+            name: 'Mobile Accessories',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Mobile Accessories'], containsAny: false } }],
+            parentName: 'Electronics',
+            assetPaths: ['adam-birkett-239153-unsplash.jpg'],
+        },
+        // ── Home & Garden ──
+        {
             name: 'Home & Garden',
-            filters: [
-                {
-                    code: 'facet-value-filter',
-                    args: { facetValueNames: ['Home & Garden'], containsAny: false },
-                },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Home & Garden'], containsAny: false } }],
             assetPaths: ['paul-weaver-1120584-unsplash.jpg'],
         },
         {
             name: 'Furniture',
-            filters: [
-                { code: 'facet-value-filter', args: { facetValueNames: ['Furniture'], containsAny: false } },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Furniture'], containsAny: false } }],
             parentName: 'Home & Garden',
             assetPaths: ['nathan-fertig-249917-unsplash.jpg'],
         },
         {
             name: 'Plants',
-            filters: [
-                { code: 'facet-value-filter', args: { facetValueNames: ['Plants'], containsAny: false } },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Plants'], containsAny: false } }],
             parentName: 'Home & Garden',
             assetPaths: ['alex-rodriguez-santibanez-200278-unsplash.jpg'],
         },
         {
+            name: 'Kitchen',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Kitchen'], containsAny: false } }],
+            parentName: 'Home & Garden',
+            assetPaths: ['kari-shea-398668-unsplash.jpg'],
+        },
+        {
+            name: 'Lighting',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Lighting'], containsAny: false } }],
+            parentName: 'Home & Garden',
+            assetPaths: ['pierre-chatel-innocenti-483198-unsplash.jpg'],
+        },
+        {
+            name: 'Decor',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Decor'], containsAny: false } }],
+            parentName: 'Home & Garden',
+            assetPaths: ['benjamin-voros-310026-unsplash.jpg'],
+        },
+        {
+            name: 'Bathroom',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Bathroom'], containsAny: false } }],
+            parentName: 'Home & Garden',
+            assetPaths: ['andres-jasso-220776-unsplash.jpg'],
+        },
+        {
+            name: 'Storage',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Storage'], containsAny: false } }],
+            parentName: 'Home & Garden',
+            assetPaths: ['abel-y-costa-716024-unsplash.jpg'],
+        },
+        // ── Sports & Outdoor ──
+        {
             name: 'Sports & Outdoor',
-            filters: [
-                {
-                    code: 'facet-value-filter',
-                    args: { facetValueNames: ['Sports & Outdoor'], containsAny: false },
-                },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Sports & Outdoor'], containsAny: false } }],
             assetPaths: ['michael-guite-571169-unsplash.jpg'],
         },
         {
             name: 'Equipment',
-            filters: [
-                { code: 'facet-value-filter', args: { facetValueNames: ['Equipment'], containsAny: false } },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Equipment'], containsAny: false } }],
             parentName: 'Sports & Outdoor',
             assetPaths: ['neonbrand-428982-unsplash.jpg'],
         },
         {
             name: 'Footwear',
-            filters: [
-                { code: 'facet-value-filter', args: { facetValueNames: ['Footwear'], containsAny: false } },
-            ],
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Footwear'], containsAny: false } }],
             parentName: 'Sports & Outdoor',
             assetPaths: ['thomas-serer-420833-unsplash.jpg'],
+        },
+        {
+            name: 'Apparel',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Apparel'], containsAny: false } }],
+            parentName: 'Sports & Outdoor',
+            assetPaths: ['imani-clovis-234736-unsplash.jpg'],
+        },
+        {
+            name: 'Fitness',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Fitness'], containsAny: false } }],
+            parentName: 'Sports & Outdoor',
+            assetPaths: ['stoica-ionela-530966-unsplash.jpg'],
+        },
+        {
+            name: 'Cycling',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Cycling'], containsAny: false } }],
+            parentName: 'Sports & Outdoor',
+            assetPaths: ['mikkel-bech-748940-unsplash.jpg'],
+        },
+        {
+            name: 'Water Sports',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Water Sports'], containsAny: false } }],
+            parentName: 'Sports & Outdoor',
+            assetPaths: ['ben-hershey-574483-unsplash.jpg'],
+        },
+        // ── Fashion ──
+        {
+            name: 'Fashion',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Fashion'], containsAny: false } }],
+            assetPaths: ['mitch-lensink-256007-unsplash.jpg'],
+        },
+        {
+            name: 'Men',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Men'], containsAny: false } }],
+            parentName: 'Fashion',
+            assetPaths: ['xavier-teo-469050-unsplash.jpg'],
+        },
+        {
+            name: 'Women',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Women'], containsAny: false } }],
+            parentName: 'Fashion',
+            assetPaths: ['chuttersnap-584518-unsplash.jpg'],
+        },
+        {
+            name: 'Accessories',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Accessories'], containsAny: false } }],
+            parentName: 'Fashion',
+            assetPaths: ['ruslan-bardash-351288-unsplash.jpg'],
+        },
+        {
+            name: 'Bags',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Bags'], containsAny: false } }],
+            parentName: 'Fashion',
+            assetPaths: ['robert-shunev-528016-unsplash.jpg'],
+        },
+        // ── Health & Beauty ──
+        {
+            name: 'Health & Beauty',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Health & Beauty'], containsAny: false } }],
+            assetPaths: ['silvia-agrasar-227575-unsplash.jpg'],
+        },
+        {
+            name: 'Skincare',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Skincare'], containsAny: false } }],
+            parentName: 'Health & Beauty',
+            assetPaths: ['natalia-y-345738-unsplash.jpg'],
+        },
+        {
+            name: 'Hair Care',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Hair Care'], containsAny: false } }],
+            parentName: 'Health & Beauty',
+            assetPaths: ['charles-deluvio-695736-unsplash.jpg'],
+        },
+        {
+            name: 'Wellness',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Wellness'], containsAny: false } }],
+            parentName: 'Health & Beauty',
+            assetPaths: ['caleb-george-536388-unsplash.jpg'],
+        },
+        // ── Automotive ──
+        {
+            name: 'Automotive',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Automotive'], containsAny: false } }],
+            assetPaths: ['derick-david-409858-unsplash.jpg'],
+        },
+        {
+            name: 'Parts',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Parts'], containsAny: false } }],
+            parentName: 'Automotive',
+            assetPaths: ['vincent-botta-736919-unsplash.jpg'],
+        },
+        {
+            name: 'Auto Accessories',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Accessories'], containsAny: false } }],
+            parentName: 'Automotive',
+            assetPaths: ['daniel-korpai-1302051-unsplash.jpg'],
+        },
+        {
+            name: 'Tools',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Tools'], containsAny: false } }],
+            parentName: 'Automotive',
+            assetPaths: ['liam-briese-1128307-unsplash.jpg'],
+        },
+        // ── Books & Media ──
+        {
+            name: 'Books & Media',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Books & Media'], containsAny: false } }],
+            assetPaths: ['mark-tegethoff-667351-unsplash.jpg'],
+        },
+        {
+            name: 'Fiction',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Fiction'], containsAny: false } }],
+            parentName: 'Books & Media',
+            assetPaths: ['jonathan-talbert-697262-unsplash.jpg'],
+        },
+        {
+            name: 'Non-Fiction',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Non-Fiction'], containsAny: false } }],
+            parentName: 'Books & Media',
+            assetPaths: ['patrick-brinksma-663044-unsplash.jpg'],
+        },
+        {
+            name: 'Music',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Music'], containsAny: false } }],
+            parentName: 'Books & Media',
+            assetPaths: ['juan-gomez-674574-unsplash.jpg'],
+        },
+        // ── Toys & Games ──
+        {
+            name: 'Toys & Games',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Toys & Games'], containsAny: false } }],
+            assetPaths: ['max-tarkhov-737999-unsplash.jpg'],
+        },
+        {
+            name: 'Board Games',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Board Games'], containsAny: false } }],
+            parentName: 'Toys & Games',
+            assetPaths: ['jean-philippe-delberghe-1400011-unsplash.jpg'],
+        },
+        {
+            name: 'Outdoor Toys',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Outdoor Toys'], containsAny: false } }],
+            parentName: 'Toys & Games',
+            assetPaths: ['michael-guite-571169-unsplash.jpg'],
+        },
+        {
+            name: 'Educational',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Educational'], containsAny: false } }],
+            parentName: 'Toys & Games',
+            assetPaths: ['annie-spratt-78044-unsplash.jpg'],
+        },
+        // ── Pet Supplies ──
+        {
+            name: 'Pet Supplies',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Pet Supplies'], containsAny: false } }],
+            assetPaths: ['zoltan-tasi-423051-unsplash.jpg'],
+        },
+        {
+            name: 'Dogs',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Dogs'], containsAny: false } }],
+            parentName: 'Pet Supplies',
+            assetPaths: ['nik-shuliahin-619349-unsplash.jpg'],
+        },
+        {
+            name: 'Cats',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Cats'], containsAny: false } }],
+            parentName: 'Pet Supplies',
+            assetPaths: ['charles-deluvio-695736-unsplash.jpg'],
+        },
+        // ── Food & Drink ──
+        {
+            name: 'Food & Drink',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Food & Drink'], containsAny: false } }],
+            assetPaths: ['neslihan-gunaydin-3493-unsplash.jpg'],
+        },
+        {
+            name: 'Coffee & Tea',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Coffee & Tea'], containsAny: false } }],
+            parentName: 'Food & Drink',
+            assetPaths: ['zoltan-kovacs-642412-unsplash.jpg'],
+        },
+        {
+            name: 'Snacks',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Snacks'], containsAny: false } }],
+            parentName: 'Food & Drink',
+            assetPaths: ['tommy-bebo-600358-unsplash.jpg'],
+        },
+        {
+            name: 'Organic',
+            filters: [{ code: 'facet-value-filter', args: { facetValueNames: ['Organic'], containsAny: false } }],
+            parentName: 'Food & Drink',
+            assetPaths: ['caleb-george-536388-unsplash.jpg'],
         },
     ],
     countries: [
