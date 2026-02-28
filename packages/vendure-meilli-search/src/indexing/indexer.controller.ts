@@ -289,7 +289,8 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                     // are ESM-only ("type": "module") which breaks ts-node/CJS projects.
                     // We use SDK v0.46 (last CJS build) and cast to `any` here.
                     // The Meilisearch server (v1.31+) still accepts `rename` at runtime.
-                    // When the SDK ships a CJS build again, remove the `as any` cast and
+                    // Will switch to new sdk later as i need to actively test this and make changes in dev mode for now 
+                    
                     // bump the SDK version.
                     const swapTask = await this.client.swapIndexes([
                         { indexes: [tempIndexUid, primaryIndexUid], rename: false } as any,
