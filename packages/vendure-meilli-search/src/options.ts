@@ -447,7 +447,43 @@ export interface AiSearchConfig {
 
 /**
  * @description
+ * Matching strategy used by Meilisearch to match query terms.
+ *
+ * - `'last'` - Returns documents containing all the query terms first, then
+ *   those with fewer terms. This is the default strategy.
+ * - `'all'` - Only returns documents that contain all query terms.
+ *   Documents missing any query terms are not returned.
+ * - `'frequency'` - Returns documents containing the most frequent query terms first.
+ *   Less common terms are prioritized as they carry more meaning.
+ */
+export type MatchingStrategy = 'last' | 'all' | 'frequency';
+
+/**
+ * @description
  * Configuration options for the internal Meilisearch query generated when performing a search.
+ *
+ * @example
+ * ```ts
+ * searchConfig: {
+ *   // Show highlighting in results
+ *   attributesToHighlight: ['productName', 'description'],
+ *   highlightPreTag: '<mark>',
+ *   highlightPostTag: '</mark>',
+ *
+ *   // Crop long descriptions
+ *   attributesToCrop: ['description'],
+ *   cropLength: 30,
+ *
+ *   // Only return results that match all query terms
+ *   matchingStrategy: 'all',
+ *
+ *   // Filter out low-relevance results
+ *   rankingScoreThreshold: 0.3,
+ *
+ *   // Show ranking scores for debugging
+ *   showRankingScore: true,
+ * }
+ * ```
  */
 export interface SearchConfig {
     /**
@@ -478,14 +514,220 @@ export interface SearchConfig {
      * @default 1000
      */
     priceRangeBucketInterval?: number;
+
+    // ───────────────────────────── Matching & Relevancy ─────────────────────────────
+
+    /**
+     * @description
+     * Strategy used to match query terms within documents.
+     *
+     * - `'last'` (default) - Returns documents with all query terms first, then
+     *   progressively returns those missing less important terms.
+     * - `'all'` - Only returns documents containing **all** query terms.
+     *   Useful for strict/exact matching.
+     * - `'frequency'` - Prioritizes less common (more meaningful) query terms
+     *   and returns documents containing those first.
+     *
+     * @default 'last'
+     *
+     * @example
+     * ```ts
+     * // Only return products that match ALL search terms
+     * matchingStrategy: 'all'
+     * ```
+     */
+    matchingStrategy?: MatchingStrategy;
+
+    /**
+     * @description
+     * Restrict search to the specified attributes only. Documents are still
+     * returned with all their fields, but only the listed attributes are
+     * searched for matches.
+     *
+     * If not set, all searchable attributes are searched.
+     *
+     * @example
+     * ```ts
+     * // Only search in product name and SKU, ignore description
+     * attributesToSearchOn: ['productName', 'sku']
+     * ```
+     *
+     * @default undefined (all searchable attributes)
+     */
+    attributesToSearchOn?: string[];
+
+    /**
+     * @description
+     * Attributes to display in the returned documents. Use `['*']` to return
+     * all attributes (default).
+     *
+     * @default undefined (all attributes)
+     */
+    attributesToRetrieve?: string[];
+
+    /**
+     * @description
+     * Minimum ranking score threshold (0.0 to 1.0). Documents with scores
+     * below this value are excluded from search results.
+     *
+     * Useful for filtering out low-relevance results, especially with
+     * AI-powered hybrid search where semantic matches may be weak.
+     *
+     * @example
+     * ```ts
+     * // Only return results with at least 30% relevance
+     * rankingScoreThreshold: 0.3
+     * ```
+     *
+     * @default undefined (no threshold)
+     */
+    rankingScoreThreshold?: number;
+
+    // ───────────────────────────── Highlighting ─────────────────────────────
+
+    /**
+     * @description
+     * Attributes whose matching terms should be highlighted in the response.
+     * Highlighted results are returned in the `_formatted` field of each hit.
+     *
+     * Use `['*']` to highlight all searchable attributes.
+     *
+     * @example
+     * ```ts
+     * attributesToHighlight: ['productName', 'description']
+     * ```
+     *
+     * @default undefined (no highlighting)
+     */
+    attributesToHighlight?: string[];
+
+    /**
+     * @description
+     * HTML/string tag inserted **before** a highlighted term.
+     *
+     * @default '<em>'
+     *
+     * @example
+     * ```ts
+     * highlightPreTag: '<mark class="highlight">'
+     * ```
+     */
+    highlightPreTag?: string;
+
+    /**
+     * @description
+     * HTML/string tag inserted **after** a highlighted term.
+     *
+     * @default '</em>'
+     *
+     * @example
+     * ```ts
+     * highlightPostTag: '</mark>'
+     * ```
+     */
+    highlightPostTag?: string;
+
+    // ───────────────────────────── Cropping ─────────────────────────────
+
+    /**
+     * @description
+     * Attributes whose values should be cropped (truncated around matched terms).
+     * Cropped results are returned in the `_formatted` field of each hit.
+     *
+     * Each entry can optionally include a custom crop length:
+     * `'description:20'` crops the description to 20 words.
+     *
+     * Use `['*']` to crop all searchable attributes.
+     *
+     * @example
+     * ```ts
+     * attributesToCrop: ['description', 'overview:15']
+     * ```
+     *
+     * @default undefined (no cropping)
+     */
+    attributesToCrop?: string[];
+
+    /**
+     * @description
+     * Default maximum length (in words) of cropped attribute values.
+     * Individual attributes can override this via `'attribute:length'` syntax
+     * in `attributesToCrop`.
+     *
+     * @default 10
+     */
+    cropLength?: number;
+
+    /**
+     * @description
+     * String used to mark crop boundaries (ellipsis marker).
+     *
+     * @default '…'
+     *
+     * @example
+     * ```ts
+     * cropMarker: '...'
+     * ```
+     */
+    cropMarker?: string;
+
+    // ───────────────────────────── Debug / Scoring ─────────────────────────────
+
+    /**
+     * @description
+     * When `true`, adds a `_matchesPosition` field to each hit showing the
+     * exact byte offsets where query terms were found. Useful for building
+     * custom highlighting on the client side.
+     *
+     * @default false
+     */
+    showMatchesPosition?: boolean;
+
+    /**
+     * @description
+     * When `true`, includes a `_rankingScore` field (0.0 to 1.0) in each hit
+     * representing the global relevance score. Useful for debugging relevance
+     * and understanding why certain results rank higher.
+     *
+     * @default false
+     */
+    showRankingScore?: boolean;
+
+    /**
+     * @description
+     * When `true`, includes a `_rankingScoreDetails` field in each hit with
+     * a detailed breakdown of the score per ranking rule (words, typo,
+     * proximity, attribute, sort, exactness, etc.).
+     *
+     * Useful for fine-tuning ranking rules and understanding relevance.
+     *
+     * @default false
+     */
+    showRankingScoreDetails?: boolean;
+
+    // ───────────────────────────── Hooks ─────────────────────────────
+
     /**
      * @description
      * Allows modification of the whole search query before it is sent to Meilisearch.
+     * This is the most powerful hook - you can override or add any Meilisearch
+     * search parameter here.
+     *
+     * @example
+     * ```ts
+     * mapQuery: (query, input, searchConfig, channelId, enabledOnly, ctx) => {
+     *   // Add custom filter based on user role
+     *   if (ctx.activeUser?.roles?.includes('wholesale')) {
+     *     query.filter += ' AND wholesaleOnly = true';
+     *   }
+     *   return query;
+     * }
+     * ```
      */
     mapQuery?: (
         query: any,
         input: MeilisearchSearchInput,
-        searchConfig: DeepRequired<SearchConfig>,
+        searchConfig: MeilisearchRuntimeOptions['searchConfig'],
         channelId: ID,
         enabledOnly: boolean,
         ctx: RequestContext,
@@ -497,9 +739,29 @@ export interface SearchConfig {
     mapSort?: (sort: string[], input: MeilisearchSearchInput) => string[];
 }
 
+/**
+ * The required core search config fields that always have defaults.
+ */
+export interface SearchConfigDefaults {
+    facetValueMaxSize: number;
+    collectionMaxSize: number;
+    totalItemsMaxSize: number;
+    priceRangeBucketInterval: number;
+    mapQuery: (
+        query: any,
+        input: MeilisearchSearchInput,
+        searchConfig: SearchConfigDefaults,
+        channelId: ID,
+        enabledOnly: boolean,
+        ctx: RequestContext,
+    ) => any;
+    mapSort: (sort: string[], input: MeilisearchSearchInput) => string[];
+}
+
 export type MeilisearchRuntimeOptions = DeepRequired<
-    Omit<MeilisearchOptions, 'ai' | 'synonyms' | 'stopWords' | 'rankingRules' | 'typoTolerance'>
+    Omit<MeilisearchOptions, 'ai' | 'synonyms' | 'stopWords' | 'rankingRules' | 'typoTolerance' | 'searchConfig'>
 > & {
+    searchConfig: SearchConfigDefaults & Omit<SearchConfig, keyof SearchConfigDefaults>;
     ai?: AiSearchConfig;
     synonyms?: Record<string, string[]>;
     stopWords?: string[];
@@ -533,8 +795,12 @@ export const defaultOptions: MeilisearchRuntimeOptions = {
 };
 
 export function mergeWithDefaults(userOptions: MeilisearchOptions): MeilisearchRuntimeOptions {
-    const { ai, synonyms, stopWords, rankingRules, typoTolerance, ...rest } = userOptions;
+    const { ai, synonyms, stopWords, rankingRules, typoTolerance, searchConfig, ...rest } = userOptions;
     const merged = deepmerge(defaultOptions, rest) as MeilisearchRuntimeOptions;
+    // Deep merge searchConfig to preserve user overrides alongside defaults
+    if (searchConfig) {
+        merged.searchConfig = deepmerge(defaultOptions.searchConfig, searchConfig) as MeilisearchRuntimeOptions['searchConfig'];
+    }
     // These optional configs are not deep-merged to avoid weird array merging behavior
     if (ai) merged.ai = ai;
     if (synonyms) merged.synonyms = synonyms;

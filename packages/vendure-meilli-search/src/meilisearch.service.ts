@@ -157,6 +157,48 @@ export class MeilisearchService implements OnModuleInit {
             };
         }
 
+        // Apply query-time search config options from plugin configuration
+        const sc = this.options.searchConfig;
+        if (sc.matchingStrategy) {
+            searchParams.matchingStrategy = sc.matchingStrategy;
+        }
+        if (sc.attributesToSearchOn) {
+            searchParams.attributesToSearchOn = sc.attributesToSearchOn;
+        }
+        if (sc.attributesToRetrieve) {
+            searchParams.attributesToRetrieve = sc.attributesToRetrieve;
+        }
+        if (sc.rankingScoreThreshold !== undefined) {
+            searchParams.rankingScoreThreshold = sc.rankingScoreThreshold;
+        }
+        if (sc.attributesToHighlight) {
+            searchParams.attributesToHighlight = sc.attributesToHighlight;
+        }
+        if (sc.highlightPreTag) {
+            searchParams.highlightPreTag = sc.highlightPreTag;
+        }
+        if (sc.highlightPostTag) {
+            searchParams.highlightPostTag = sc.highlightPostTag;
+        }
+        if (sc.attributesToCrop) {
+            searchParams.attributesToCrop = sc.attributesToCrop;
+        }
+        if (sc.cropLength !== undefined) {
+            searchParams.cropLength = sc.cropLength;
+        }
+        if (sc.cropMarker !== undefined) {
+            searchParams.cropMarker = sc.cropMarker;
+        }
+        if (sc.showMatchesPosition) {
+            searchParams.showMatchesPosition = sc.showMatchesPosition;
+        }
+        if (sc.showRankingScore) {
+            searchParams.showRankingScore = sc.showRankingScore;
+        }
+        if (sc.showRankingScoreDetails) {
+            searchParams.showRankingScoreDetails = sc.showRankingScoreDetails;
+        }
+
         // Apply mapQuery if configured
         const finalParams = this.options.searchConfig.mapQuery
             ? this.options.searchConfig.mapQuery(

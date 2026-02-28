@@ -27,6 +27,8 @@ Thumbs.db
 AGENT.md
 steps.md
 MEILISEARCH.md
+llms.txt
+llms.full.txt
 
 # Build artifacts
 *.tsbuildinfo

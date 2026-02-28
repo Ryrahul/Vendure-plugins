@@ -77,6 +77,21 @@ export const config: VendureConfig = {
         MeilisearchPlugin.init({
             host: process.env.MEILISEARCH_HOST || 'http://localhost:7700',
             apiKey: process.env.MEILISEARCH_API_KEY || '',
+            searchConfig: {
+                // Balanced matching: drops only the least important term if needed
+                matchingStrategy: 'frequency',
+                // Filter out very weak results
+                rankingScoreThreshold: 0.15,
+                // Show ranking scores for dev debugging
+                showRankingScore: true,
+            },
+            typoTolerance: {
+                enabled: true,
+                // 1 typo on words with 4+ chars (default 5)
+                minWordSizeForOneTypo: 4,
+                // 2 typos on words with 8+ chars (default 9)
+                minWordSizeForTwoTypos: 8,
+            },
             ai: {
                 embedders: {
                     'default': {
