@@ -2,6 +2,7 @@ import {
     dummyPaymentHandler,
     DefaultJobQueuePlugin,
     DefaultSchedulerPlugin,
+    LanguageCode,
     VendureConfig,
 } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from '@vendure/email-plugin';
@@ -59,9 +60,22 @@ export const config: VendureConfig = {
     paymentOptions: {
         paymentMethodHandlers: [dummyPaymentHandler],
     },
-    // When adding or altering custom field definitions, the database will
-    // need to be updated. See the "Migrations" section in README.md.
-    customFields: {},
+    customFields: {
+        Product: [
+            {
+                name: 'brand',
+                type: 'string',
+                label: [{ languageCode: LanguageCode.en, value: 'Brand' }],
+            },
+        ],
+        ProductVariant: [
+            {
+                name: 'weight',
+                type: 'float',
+                label: [{ languageCode: LanguageCode.en, value: 'Weight (kg)' }],
+            },
+        ],
+    },
     plugins: [
         GraphiqlPlugin.init(),
         AssetServerPlugin.init({
@@ -92,16 +106,28 @@ export const config: VendureConfig = {
                 // 2 typos on words with 8+ chars (default 9)
                 minWordSizeForTwoTypos: 8,
             },
-            ai: {
-                embedders: {
-                    'default': {
-                        source: 'openAi',
-                        model: 'text-embedding-3-small',
-                        apiKey: process.env.OPENAI_API_KEY || '',
-                        documentTemplate: "A product called '{{doc.productName}}' - {{doc.description | truncatewords: 20}}",
-                    },
+            // ai: {
+            //     embedders: {
+            //         'default': {
+            //             source: 'openAi',
+            //             model: 'text-embedding-3-small',
+            //             apiKey: process.env.OPENAI_API_KEY || '',
+            //             documentTemplate: "A product called '{{doc.productName}}' - {{doc.description | truncatewords: 20}}",
+            //         },
+            //     },
+            //     semanticRatio: 0.5,
+            // },
+            customProductMappings: {
+                brand: {
+                    graphQlType: 'String',
+                    valueFn: (product) => (product.customFields as any)?.brand ?? '',
                 },
-                semanticRatio: 0.5,
+            },
+            customProductVariantMappings: {
+                weight: {
+                    graphQlType: 'Float',
+                    valueFn: (variant) => (variant.customFields as any)?.weight ?? 0,
+                },
             },
             synonyms: {
                 phone: ['mobile', 'smartphone'],
