@@ -12,7 +12,16 @@ A monorepo of independently publishable [Vendure](https://www.vendure.io/) plugi
 | [`@rahul_vendure/vendure-plugin-phone-auth`](./packages/vendure-plugin-phone-auth) | 1.0.5 | Phone number + OTP authentication for the Shop API. Pluggable SMS providers, phone validation via `libphonenumber-js`, configurable OTP settings. |
 | [`@rahul_vendure/vendure-plugin-wishlist`](./packages/vendure-plugin-wishlist) | 1.0.1 | Customer wishlist functionality with add/remove/bulk operations and variant-level wishlist status resolution. |
 
-All plugins target `@vendure/core ^3.0.0` as a peer dependency and are licensed under MIT.
+All plugins above target `@vendure/core ^3.0.0` as a peer dependency and are licensed under MIT.
+
+### Other Packages (closed-source, available on npm)
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| [`@rahul_vendure/ai-chat-plugin`](https://www.npmjs.com/package/@rahul_vendure/ai-chat-plugin) | 0.1.8 | AI-powered shopping assistant plugin for Vendure — LLM chat with 19 built-in tools, pgvector semantic search, cart management, order tracking, checkout assistance, and an admin dashboard chat. Requires PostgreSQL with pgvector and an OpenAI API key. |
+| [`@rahul_vendure/ai-chat-react`](https://www.npmjs.com/package/@rahul_vendure/ai-chat-react) | 0.1.10 | Drop-in AI shopping assistant React component for Vendure stores. Renders a floating chat panel with product cards, collection badges, cart summary, and quick actions. Ships pre-compiled CSS, supports dark mode, and works with Next.js, Remix, Vite, CRA, etc. Pairs with `@rahul_vendure/ai-chat-plugin`. |
+
+These packages are **not open-source** but are freely installable from npm. Licensed under AGPL-3.0.
 
 ## Repository Structure
 
