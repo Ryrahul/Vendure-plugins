@@ -20,6 +20,7 @@
     "@rahul_vendure/vendure-plugin-phone-auth": "*",
     "@rahul_vendure/vendure-plugin-faq": "*",
     "@rahul_vendure/vendure-plugin-wishlist": "*",
+    "@rahul_vendure/vendure-plugin-inactive-cart-reminder": "*",
     "@rahul_vendure/vendure-plugin-extra-promotions": "*",
     "@rahul_vendure/vendure-meilli-search": "*",
     "@vendure/asset-server-plugin": "3.5.4",
