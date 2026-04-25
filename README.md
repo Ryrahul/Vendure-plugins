@@ -14,14 +14,27 @@ A monorepo of independently publishable [Vendure](https://www.vendure.io/) plugi
 
 All plugins above target `@vendure/core ^3.0.0` as a peer dependency and are licensed under MIT.
 
-### Other Packages (closed-source, available on npm)
+### Vendure AI (submodule)
 
-| Package | Version | Description |
-|---------|---------|-------------|
-| [`@rahul_vendure/ai-chat-plugin`](https://www.npmjs.com/package/@rahul_vendure/ai-chat-plugin) | 0.1.8 | AI-powered shopping assistant plugin for Vendure — LLM chat with 19 built-in tools, pgvector semantic search, cart management, order tracking, checkout assistance, and an admin dashboard chat. Requires PostgreSQL with pgvector and an OpenAI API key. |
-| [`@rahul_vendure/ai-chat-react`](https://www.npmjs.com/package/@rahul_vendure/ai-chat-react) | 0.1.10 | Drop-in AI shopping assistant React component for Vendure stores. Renders a floating chat panel with product cards, collection badges, cart summary, and quick actions. Ships pre-compiled CSS, supports dark mode, and works with Next.js, Remix, Vite, CRA, etc. Pairs with `@rahul_vendure/ai-chat-plugin`. |
+The AI chat packages live in a separate repository and are included here as a [Git submodule](./packages/vendure-ai).
 
-These packages are **not open-source** but are freely installable from npm. Licensed under AGPL-3.0.
+| Package | Description |
+|---------|-------------|
+| [`@rahul_vendure/ai-chat-plugin`](./packages/vendure-ai/packages/ai-chat-plugin) | AI-powered shopping assistant plugin for Vendure — LLM chat with 19 built-in tools, pgvector semantic search, cart management, order tracking, checkout assistance, and an admin dashboard chat. Requires PostgreSQL with pgvector and an OpenAI API key. |
+| [`@rahul_vendure/ai-chat-react`](./packages/vendure-ai/packages/ai-chat-react) | Drop-in AI shopping assistant React component for Vendure stores. Renders a floating chat panel with product cards, collection badges, cart summary, and quick actions. Ships pre-compiled CSS, supports dark mode, and works with Next.js, Remix, Vite, CRA, etc. Pairs with `@rahul_vendure/ai-chat-plugin`. |
+| [`@rahul_vendure/ai-chat-dashboard`](./packages/vendure-ai/packages/ai-chat-dashboard) | Admin dashboard extension for the AI chat plugin. |
+
+To clone this repo with the submodule included:
+
+```bash
+git clone --recurse-submodules https://github.com/Ryrahul/Vendure-plugins.git
+```
+
+Or if already cloned:
+
+```bash
+git submodule update --init --recursive
+```
 
 ## Repository Structure
 
@@ -32,7 +45,13 @@ These packages are **not open-source** but are freely installable from npm. Lice
 │   ├── vendure-plugin-extra-promotions/
 │   ├── vendure-plugin-faq/
 │   ├── vendure-plugin-phone-auth/
-│   └── vendure-plugin-wishlist/
+│   ├── vendure-plugin-wishlist/
+│   └── vendure-ai/               # Git submodule (AI chat packages)
+│       ├── packages/
+│       │   ├── ai-chat-plugin/
+│       │   ├── ai-chat-react/
+│       │   └── ai-chat-dashboard/
+│       └── apps/
 ├── apps/
 │   └── dev-server/               # Local Vendure instance for testing
 ├── tsconfig.base.json            # Shared TypeScript config
@@ -49,8 +68,8 @@ These packages are **not open-source** but are freely installable from npm. Lice
 ## Getting Started
 
 ```bash
-# Clone the repo
-git clone https://github.com/Ryrahul/Vendure-plugins.git
+# Clone the repo (--recurse-submodules pulls in the vendure-ai submodule)
+git clone --recurse-submodules https://github.com/Ryrahul/Vendure-plugins.git
 cd vendure-packages
 
 # Install all dependencies (workspaces are linked automatically)

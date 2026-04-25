@@ -1,0 +1,3 @@
+[submodule "packages/vendure-ai"]
+	path = packages/vendure-ai
+	url = https://github.com/Ryrahul/Vendure-ai.git
