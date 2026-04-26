@@ -1,0 +1,27 @@
+# Stub definitions for Vendure core types used in API extensions.
+scalar DateTime
+scalar LanguageCode
+scalar Money
+scalar JSON
+
+interface Node {
+  id: ID!
+}
+
+interface PaginatedList {
+  items: [Node!]!
+  totalItems: Int!
+}
+
+type DeletionResponse {
+  result: DeletionResult!
+  message: String
+}
+
+enum DeletionResult {
+  DELETED
+  NOT_DELETED
+}
+
+type Query
+type Mutation

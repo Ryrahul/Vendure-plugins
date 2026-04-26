@@ -5,6 +5,8 @@ import path from 'path';
 import { initialData } from "../mock-data/data-sources/initial-data";
 
 import { config } from './vendure-config';
+import { populateOrders } from './populate-orders';
+import { populateExportData } from './populate-export-data';
 
 /**
  * A CLI script which populates the dev database with deterministic random data.
@@ -38,6 +40,10 @@ if (require.main === module) {
         .then(async (app) => {
             console.log('populating customers...');
             await populateCustomers(app, 10, (message) => Logger.error(message));
+            console.log('populating orders...');
+            await populateOrders(app);
+            console.log('populating export seed data...');
+            await populateExportData(app);
             return app.close();
         })
         .then(

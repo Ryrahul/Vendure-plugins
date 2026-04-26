@@ -1,0 +1,63 @@
+{
+  "name": "@rahul_vendure/vendure-plugin-order-export",
+  "version": "1.0.0",
+  "description": "Vendure plugin for order export, automated reporting, scheduled reports, analytics dashboard, and AI-powered insights",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./dashboard": {
+      "types": "./src/dashboard/index.tsx",
+      "import": "./src/dashboard/index.tsx",
+      "default": "./src/dashboard/index.tsx"
+    }
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "src/dashboard/**/*",
+    "README.md"
+  ],
+  "scripts": {
+    "generate": "graphql-codegen --config codegen.yml",
+    "build": "npm run generate && tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@vendure/core": "^3.3.0",
+    "@vendure/email-plugin": "^3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@vendure/email-plugin": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "fast-csv": "^5.0.2",
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.16.0"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.1.1",
+    "@graphql-codegen/typescript": "^5.0.8",
+    "@types/pdfkit": "^0.13.8"
+  },
+  "keywords": [
+    "vendure",
+    "vendure-plugin",
+    "order-export",
+    "analytics",
+    "reporting",
+    "csv",
+    "excel",
+    "pdf",
+    "scheduled-reports",
+    "ai-insights"
+  ],
+  "license": "MIT"
+}

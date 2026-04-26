@@ -4,6 +4,7 @@ import {
     DefaultSchedulerPlugin,
     LanguageCode,
     VendureConfig,
+    DefaultSearchPlugin,
 } from '@vendure/core';
 import { defaultEmailHandlers, EmailPlugin, FileBasedTemplateLoader } from '@vendure/email-plugin';
 import { AssetServerPlugin } from '@vendure/asset-server-plugin';
@@ -14,6 +15,7 @@ import { WishlistPlugin } from '@rahul_vendure/vendure-plugin-wishlist';
 import { FaqPlugin } from '@rahul_vendure/vendure-plugin-faq';
 import { ExtraPromotionsPlugin } from '@rahul_vendure/vendure-plugin-extra-promotions';
 import { MeilisearchPlugin } from '@rahul_vendure/vendure-meilli-search';
+import { OrderExportPlugin } from '@rahul_vendure/vendure-plugin-order-export';
 import { SwiftSmsProvider } from './providers/swift-sms.provider';
 import 'dotenv/config';
 import path from 'path';
@@ -86,54 +88,55 @@ export const config: VendureConfig = {
             // to be set manually to match your production url.
             assetUrlPrefix: IS_DEV ? undefined : 'https://www.my-shop.com/assets/',
         }),
+        DefaultSearchPlugin,
         DefaultSchedulerPlugin.init(),
         DefaultJobQueuePlugin.init({ useDatabaseForBuffer: true }),
-        MeilisearchPlugin.init({
-            host: process.env.MEILISEARCH_HOST || 'http://localhost:7700',
-            apiKey: process.env.MEILISEARCH_API_KEY || '',
-            searchConfig: {
-                // Balanced matching: drops only the least important term if needed
-                matchingStrategy: 'frequency',
-                // Filter out very weak results
-                rankingScoreThreshold: 0.15,
-                // Show ranking scores for dev debugging
-                showRankingScore: true,
-            },
-            typoTolerance: {
-                enabled: true,
-                // 1 typo on words with 4+ chars (default 5)
-                minWordSizeForOneTypo: 4,
-                // 2 typos on words with 8+ chars (default 9)
-                minWordSizeForTwoTypos: 8,
-            },
-            // ai: {
-            //     embedders: {
-            //         'default': {
-            //             source: 'openAi',
-            //             model: 'text-embedding-3-small',
-            //             apiKey: process.env.OPENAI_API_KEY || '',
-            //             documentTemplate: "A product called '{{doc.productName}}' - {{doc.description | truncatewords: 20}}",
-            //         },
-            //     },
-            //     semanticRatio: 0.5,
-            // },
-            customProductMappings: {
-                brand: {
-                    graphQlType: 'String',
-                    valueFn: (product) => (product.customFields as any)?.brand ?? '',
-                },
-            },
-            customProductVariantMappings: {
-                weight: {
-                    graphQlType: 'Float',
-                    valueFn: (variant) => (variant.customFields as any)?.weight ?? 0,
-                },
-            },
-            synonyms: {
-                phone: ['mobile', 'smartphone'],
-            },
-            stopWords: ['the', 'a', 'an'],
-        }),
+        // MeilisearchPlugin.init({
+        //     host: process.env.MEILISEARCH_HOST || 'http://localhost:7700',
+        //     apiKey: process.env.MEILISEARCH_API_KEY || '',
+        //     searchConfig: {
+        //         // Balanced matching: drops only the least important term if needed
+        //         matchingStrategy: 'frequency',
+        //         // Filter out very weak results
+        //         rankingScoreThreshold: 0.15,
+        //         // Show ranking scores for dev debugging
+        //         showRankingScore: true,
+        //     },
+        //     typoTolerance: {
+        //         enabled: true,
+        //         // 1 typo on words with 4+ chars (default 5)
+        //         minWordSizeForOneTypo: 4,
+        //         // 2 typos on words with 8+ chars (default 9)
+        //         minWordSizeForTwoTypos: 8,
+        //     },
+        //     // ai: {
+        //     //     embedders: {
+        //     //         'default': {
+        //     //             source: 'openAi',
+        //     //             model: 'text-embedding-3-small',
+        //     //             apiKey: process.env.OPENAI_API_KEY || '',
+        //     //             documentTemplate: "A product called '{{doc.productName}}' - {{doc.description | truncatewords: 20}}",
+        //     //         },
+        //     //     },
+        //     //     semanticRatio: 0.5,
+        //     // },
+        //     customProductMappings: {
+        //         brand: {
+        //             graphQlType: 'String',
+        //             valueFn: (product) => (product.customFields as any)?.brand ?? '',
+        //         },
+        //     },
+        //     customProductVariantMappings: {
+        //         weight: {
+        //             graphQlType: 'Float',
+        //             valueFn: (variant) => (variant.customFields as any)?.weight ?? 0,
+        //         },
+        //     },
+        //     synonyms: {
+        //         phone: ['mobile', 'smartphone'],
+        //     },
+        //     stopWords: ['the', 'a', 'an'],
+        // }),
         EmailPlugin.init({
             devMode: true,
             outputPath: path.join(__dirname, '../static/email/test-emails'),
@@ -170,6 +173,10 @@ export const config: VendureConfig = {
         WishlistPlugin.init(),
         FaqPlugin.init(),
         ExtraPromotionsPlugin,
-   
+        OrderExportPlugin.init({
+            enableAiInsights: !!process.env.OPENAI_API_KEY,
+            openAiApiKey: process.env.OPENAI_API_KEY || '',
+            openAiModel: 'gpt-4o-mini',
+        }),
     ],
 };

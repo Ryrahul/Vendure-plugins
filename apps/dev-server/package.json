@@ -17,25 +17,30 @@
     "populate": "ts-node ./src/populate.ts"
   },
   "dependencies": {
-    "@rahul_vendure/vendure-plugin-phone-auth": "*",
-    "@rahul_vendure/vendure-plugin-faq": "*",
-    "@rahul_vendure/vendure-plugin-wishlist": "*",
-    "@rahul_vendure/vendure-plugin-extra-promotions": "*",
     "@rahul_vendure/vendure-meilli-search": "*",
-    "@vendure/asset-server-plugin": "3.5.4",
-    "@vendure/core": "3.5.4",
-    "@vendure/dashboard": "3.5.4",
-    "@vendure/email-plugin": "3.5.4",
-    "@vendure/graphiql-plugin": "3.5.4",
+    "@rahul_vendure/vendure-plugin-extra-promotions": "*",
+    "@rahul_vendure/vendure-plugin-faq": "*",
+    "@rahul_vendure/vendure-plugin-order-export": "*",
+    "@rahul_vendure/vendure-plugin-phone-auth": "*",
+    "@rahul_vendure/vendure-plugin-wishlist": "*",
+    "@vendure/asset-server-plugin": "3.6.1",
+    "@vendure/core": "3.6.1",
+    "@vendure/dashboard": "3.6.1",
+    "@vendure/email-plugin": "3.6.1",
+    "@vendure/graphiql-plugin": "3.6.1",
     "axios": "^1.13.5",
     "dotenv": "17.2.3",
-    "pg": "^8.18.0"
+    "openai": "^6.34.0",
+    "pg": "^8.18.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.1.1",
+    "@graphql-codegen/typed-document-node": "^5.0.12",
     "@graphql-codegen/typescript": "^5.0.8",
-    "@vendure/cli": "3.5.2",
-    "@vendure/testing": "^3.5.4",
+    "@graphql-codegen/typescript-operations": "^4.4.0",
+    "@vendure/cli": "3.6.1",
+    "@vendure/testing": "3.6.1",
     "concurrently": "9.2.1",
     "typescript": "5.8.2"
   }

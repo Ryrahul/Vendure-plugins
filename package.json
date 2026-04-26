@@ -3,5 +3,12 @@
   "workspaces": [
     "packages/*",
     "apps/*"
-  ]
+  ],
+  "overrides": {
+    "@vendure/core": "3.6.1"
+  },
+  "devDependencies": {
+    "@graphql-codegen/typed-document-node": "^6.1.8",
+    "@graphql-codegen/typescript-operations": "^5.1.0"
+  }
 }

@@ -3,7 +3,8 @@ dist/
 *.js.map
 *.d.ts.map
 
-# Dev server assets & data
+# Dev 
+server assets & data
 apps/dev-server/src/assets/
 apps/dev-server/src/test-emails/
 apps/dev-server/vendure.sqlite
@@ -34,3 +35,8 @@ llms.full.txt
 *.tsbuildinfo
 
 apps/dev-server/schema.graphql
+apps/dev-server/static/assets/
+apps/dev-server/static/email/test-emails/
+apps/dev-server/.vendure/
+apps/dev-server/src/codegen/
+apps/dev-server/src/gql/

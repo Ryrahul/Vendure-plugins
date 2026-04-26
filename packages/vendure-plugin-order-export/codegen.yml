@@ -1,0 +1,18 @@
+schema:
+  - 'vendure-schema-stub.graphql'
+  - 'src/**/*.ts'
+generates:
+  ./src/generated-graphql-types.ts:
+    plugins:
+      - typescript
+    config:
+      maybeValue: 'T | undefined'
+      inputMaybeValue: 'T | undefined'
+      scalars:
+        DateTime: Date
+        Money: number
+        JSON: any
+        LanguageCode: import('@vendure/common/lib/generated-types').LanguageCode
+      namingConvention:
+        enumValues: keep
+      avoidOptionals: false
