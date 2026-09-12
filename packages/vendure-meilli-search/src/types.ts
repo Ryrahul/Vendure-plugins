@@ -9,9 +9,28 @@ import {
 } from '@vendure/common/lib/generated-types';
 import { ID, JsonCompatible } from '@vendure/common/lib/shared-types';
 import { Asset, SerializedRequestContext } from '@vendure/core';
+import type { SearchParams } from 'meilisearch';
+
+/**
+ * @description
+ * The Meilisearch search parameters the plugin builds for each query. This is the
+ * SDK's own `SearchParams` type, re-exported so that `searchConfig.mapQuery`
+ * implementations can be written against it.
+ */
+export type MeilisearchQueryParams = SearchParams;
 
 export type MeilisearchSearchResult = SearchResult & {
     inStock: boolean;
+    /**
+     * Meilisearch highlight/crop output for the product name, present when
+     * `searchConfig.attributesToHighlight` / `attributesToCrop` is configured.
+     */
+    formattedProductName?: string | null;
+    /**
+     * Meilisearch highlight/crop output for the description, present when
+     * `searchConfig.attributesToHighlight` / `attributesToCrop` is configured.
+     */
+    formattedDescription?: string | null;
 };
 
 export type MeilisearchSearchInput = SearchInput & {
@@ -39,7 +58,7 @@ export type PriceRangeBucket = {
     count: number;
 };
 
-export type MeilisearchSortInput = Array<string>;
+export type MeilisearchSortInput = string[];
 
 export type IndexItemAssets = {
     productAssetId: ID | undefined;
@@ -194,6 +213,10 @@ export interface SimilarDocumentsInput {
      * Meilisearch filter string to narrow down results.
      */
     filter?: string;
+    /**
+     * Collapse variants of the same product so each product appears once.
+     */
+    groupByProduct?: boolean;
 }
 
 export type GraphQlPrimitive = 'ID' | 'String' | 'Int' | 'Float' | 'Boolean';

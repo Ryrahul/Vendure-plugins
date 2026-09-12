@@ -16,6 +16,7 @@ export {
     SearchPriceData,
     PriceRangeBucket,
     MeilisearchSortInput,
+    MeilisearchQueryParams,
     VariantIndexItem,
     ProductIndexItem,
     SimilarDocumentsInput,

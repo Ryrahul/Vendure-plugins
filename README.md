@@ -6,7 +6,7 @@ A monorepo of independently publishable [Vendure](https://www.vendure.io/) plugi
 
 | Package | Version | Description |
 |---------|---------|-------------|
-| [`@rahul_vendure/vendure-meilli-search`](./packages/vendure-meilli-search) | 1.0.1 | Drop-in Meilisearch replacement for Vendure's DefaultSearchPlugin. Full-text, faceted, and AI-powered hybrid/semantic search with automatic index syncing. |
+| [`@rahul_vendure/vendure-meilli-search`](./packages/vendure-meilli-search) | 2.0.0 | Drop-in Meilisearch replacement for Vendure's DefaultSearchPlugin. Full-text, faceted, and AI-powered hybrid/semantic search with automatic index syncing. |
 | [`@rahul_vendure/vendure-plugin-extra-promotions`](./packages/vendure-plugin-extra-promotions) | 1.1.0 | 9 extra promotion conditions and 5 actions (collection discounts, cross-sell, happy hours, stock clearance, and more). Includes a dashboard UI. |
 | [`@rahul_vendure/vendure-plugin-faq`](./packages/vendure-plugin-faq) | 1.0.7 | FAQ management with i18n translations, multi-channel support, Admin + Shop API extensions, and a dashboard panel. |
 | [`@rahul_vendure/vendure-plugin-phone-auth`](./packages/vendure-plugin-phone-auth) | 1.0.5 | Phone number + OTP authentication for the Shop API. Pluggable SMS providers, phone validation via `libphonenumber-js`, configurable OTP settings. |

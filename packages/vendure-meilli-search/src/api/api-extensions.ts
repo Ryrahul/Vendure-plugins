@@ -1,12 +1,13 @@
-import { gql } from 'graphql-tag';
 import { DocumentNode } from 'graphql';
+import { gql } from 'graphql-tag';
 
-import { MeilisearchOptions } from '../options';
+import { MeilisearchOptions, MeilisearchRuntimeOptions } from '../options';
 
-export function generateSchemaExtensions(options: MeilisearchOptions): DocumentNode {
+export function generateSchemaExtensions(options: MeilisearchOptions | MeilisearchRuntimeOptions): DocumentNode {
     const customMappingTypes = generateCustomMappingTypes(options);
     const inputExtensions = Object.entries(options.extendSearchInputType || {});
     const sortExtensions = options.extendSearchSortType || [];
+
     const aiEnabled = !!(options.ai?.embedders && Object.keys(options.ai.embedders).length > 0);
 
     const sortExtensionGql = `
@@ -17,7 +18,7 @@ export function generateSchemaExtensions(options: MeilisearchOptions): DocumentN
     const similarDocumentsGql = aiEnabled
         ? `
         """
-        Input for finding similar documents using AI embeddings.
+        Input for finding similar documents using Meilisearch AI embeddings.
         Requires AI search to be configured in the MeilisearchPlugin.
         """
         input SimilarDocumentsInput {
@@ -31,6 +32,8 @@ export function generateSchemaExtensions(options: MeilisearchOptions): DocumentN
             offset: Int
             "Optional Meilisearch filter string to narrow results."
             filter: String
+            "Collapse variants of the same product so each product appears once."
+            groupByProduct: Boolean
         }
 
         type SimilarDocumentsResponse {
@@ -52,6 +55,8 @@ export function generateSchemaExtensions(options: MeilisearchOptions): DocumentN
 
         extend type SearchResult {
             inStock: Boolean
+            formattedProductName: String
+            formattedDescription: String
         }
 
         type SearchResponsePriceData {
@@ -87,7 +92,7 @@ export function generateSchemaExtensions(options: MeilisearchOptions): DocumentN
     `;
 }
 
-function generateCustomMappingTypes(options: MeilisearchOptions): DocumentNode | undefined {
+function generateCustomMappingTypes(options: MeilisearchOptions | MeilisearchRuntimeOptions): DocumentNode | undefined {
     const productMappings = Object.entries(options.customProductMappings || {}).filter(
         ([, value]) => value.public ?? true,
     );

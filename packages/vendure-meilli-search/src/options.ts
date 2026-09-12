@@ -10,17 +10,24 @@ import {
 } from '@vendure/core';
 import deepmerge from 'deepmerge';
 
+import { DEFAULT_TASK_TIMEOUT_MS } from './constants';
+
 import {
     CustomMapping,
     GraphQlPrimitive,
+    MeilisearchQueryParams,
     MeilisearchSearchInput,
     PrimitiveTypeVariations,
 } from './types';
 
 /**
  * @description
- * Configuration for an AI embedder source. Meilisearch supports OpenAI, HuggingFace,
- * Ollama, and generic REST embedders.
+ * Configuration for a Meilisearch embedder. Meilisearch natively supports OpenAI,
+ * HuggingFace, Ollama, and generic REST embedders, as well as `userProvided`
+ * vectors which you generate yourself.
+ *
+ * The plugin never calls the embedding provider directly — the config is forwarded
+ * to Meilisearch, which owns the integration and performs the embedding calls.
  *
  * @example
  * ```ts
@@ -64,6 +71,11 @@ export interface EmbedderConfig {
     /**
      * @description
      * API key for the embedder provider (required for OpenAI, optional for others).
+     *
+     * The key is forwarded to Meilisearch in plaintext and stored in the index
+     * settings, so load it from an environment variable or secret manager — never
+     * commit it. Rotating the key requires re-applying the embedder settings
+     * (a reindex, or a restart of the Vendure server).
      */
     apiKey?: string;
     /**
@@ -161,26 +173,9 @@ export interface TypoToleranceConfig {
  *
  * @example
  * ```ts
- * // Basic setup (full-text search only)
  * MeilisearchPlugin.init({
  *   host: 'http://localhost:7700',
  *   apiKey: 'masterKey',
- * })
- *
- * // With AI-powered hybrid search
- * MeilisearchPlugin.init({
- *   host: 'http://localhost:7700',
- *   apiKey: 'masterKey',
- *   ai: {
- *     embedders: {
- *       'product-search': {
- *         source: 'openAi',
- *         model: 'text-embedding-3-small',
- *         apiKey: process.env.OPENAI_API_KEY,
- *         documentTemplate: "A product called '{{doc.productName}}' - {{doc.description | truncatewords: 20}}",
- *       },
- *     },
- *   },
  *   synonyms: {
  *     phone: ['mobile', 'smartphone'],
  *     laptop: ['notebook'],
@@ -303,16 +298,36 @@ export interface MeilisearchOptions {
      */
     extendSearchSortType?: string[];
 
+    /**
+     * @description
+     * How long (in ms) to wait for a Meilisearch task — a document batch, a settings
+     * update, an index swap — to complete before giving up and failing the operation.
+     *
+     * The default is generous because indexing with AI embedders configured is slow:
+     * Meilisearch calls the embedding provider for every document in the batch, so a
+     * batch of a few thousand documents can take minutes. Lower it if you would rather
+     * a stalled Meilisearch fail fast.
+     *
+     * @default 300000 (5 minutes)
+     */
+    taskTimeout?: number;
+
     // ───────────────────────────── AI / Hybrid Search ─────────────────────────────
 
     /**
      * @description
-     * AI-powered search configuration. When set, enables hybrid search
-     * that combines full-text keyword matching with semantic vector search.
+     * Meilisearch AI (vector) search configuration. When set, enables hybrid search
+     * that combines full-text keyword matching with semantic vector search, and the
+     * `similarDocuments` query.
      *
-     * Requires an embedding provider (OpenAI, HuggingFace, Ollama, etc.).
-     * This is entirely **opt-in** - if not configured, the plugin operates
+     * Requires Meilisearch v1.13+ with the vector store enabled and an embedding
+     * provider (OpenAI, HuggingFace, Ollama, REST, or `userProvided`).
+     * This is entirely **opt-in** — if not configured, the plugin operates
      * in full-text search mode only.
+     *
+     * Note that embeddings are generated for every indexed document and hybrid
+     * search runs on every query, so a paid provider incurs cost proportional to
+     * catalog size and traffic. See the README for cost guidance.
      *
      * @example
      * ```ts
@@ -341,6 +356,10 @@ export interface MeilisearchOptions {
      * A map of synonyms. Each key is a word, and its value is an array of
      * synonymous words. This allows users to find products regardless of
      * which synonym they use.
+     *
+     * Synonyms are **automatically expanded bidirectionally** — you only need
+     * to define one direction (e.g. `laptop: ['notebook']`) and the reverse
+     * mapping (`notebook: ['laptop']`) is generated automatically.
      *
      * @example
      * ```ts
@@ -412,7 +431,7 @@ export interface MeilisearchOptions {
 
 /**
  * @description
- * Configuration for AI-powered hybrid search.
+ * Configuration for Meilisearch AI-powered hybrid (vector) search.
  */
 export interface AiSearchConfig {
     /**
@@ -725,13 +744,13 @@ export interface SearchConfig {
      * ```
      */
     mapQuery?: (
-        query: any,
+        query: MeilisearchQueryParams,
         input: MeilisearchSearchInput,
         searchConfig: MeilisearchRuntimeOptions['searchConfig'],
         channelId: ID,
         enabledOnly: boolean,
         ctx: RequestContext,
-    ) => any;
+    ) => MeilisearchQueryParams;
     /**
      * @description
      * Allows extending the sort parameter of the Meilisearch query.
@@ -748,13 +767,13 @@ export interface SearchConfigDefaults {
     totalItemsMaxSize: number;
     priceRangeBucketInterval: number;
     mapQuery: (
-        query: any,
+        query: MeilisearchQueryParams,
         input: MeilisearchSearchInput,
         searchConfig: SearchConfigDefaults,
         channelId: ID,
         enabledOnly: boolean,
         ctx: RequestContext,
-    ) => any;
+    ) => MeilisearchQueryParams;
     mapSort: (sort: string[], input: MeilisearchSearchInput) => string[];
 }
 
@@ -777,6 +796,7 @@ export const defaultOptions: MeilisearchRuntimeOptions = {
     indexPrefix: 'vendure-',
     reindexProductsChunkSize: 2500,
     reindexBatchSize: 1000,
+    taskTimeout: DEFAULT_TASK_TIMEOUT_MS,
     searchConfig: {
         facetValueMaxSize: 50,
         collectionMaxSize: 50,
@@ -797,15 +817,67 @@ export const defaultOptions: MeilisearchRuntimeOptions = {
 export function mergeWithDefaults(userOptions: MeilisearchOptions): MeilisearchRuntimeOptions {
     const { ai, synonyms, stopWords, rankingRules, typoTolerance, searchConfig, ...rest } = userOptions;
     const merged = deepmerge(defaultOptions, rest) as MeilisearchRuntimeOptions;
+
+    // Validate indexPrefix — Meilisearch only allows alphanumeric, hyphens, and underscores
+    // in index UIDs. Dots are converted to hyphens by getIndexUid(), but any other special
+    // characters are silently stripped, which could cause index collisions
+    // (e.g. 'shop@a-' and 'shopa-' would both become 'shopa-variants').
+    if (merged.indexPrefix) {
+        const normalized = merged.indexPrefix.replace(/\./g, '-');
+        if (/[^a-zA-Z0-9_-]/.test(normalized)) {
+            throw new Error(
+                `indexPrefix "${merged.indexPrefix}" contains invalid characters. ` +
+                `Only alphanumeric characters, hyphens, underscores, and dots are allowed.`,
+            );
+        }
+    }
+
     // Deep merge searchConfig to preserve user overrides alongside defaults
     if (searchConfig) {
         merged.searchConfig = deepmerge(defaultOptions.searchConfig, searchConfig) as MeilisearchRuntimeOptions['searchConfig'];
     }
     // These optional configs are not deep-merged to avoid weird array merging behavior
-    if (ai) merged.ai = ai;
+    if (ai) {
+        validateAiConfig(ai);
+        merged.ai = ai;
+    }
     if (synonyms) merged.synonyms = synonyms;
     if (stopWords) merged.stopWords = stopWords;
     if (rankingRules) merged.rankingRules = rankingRules;
     if (typoTolerance) merged.typoTolerance = typoTolerance;
     return merged;
+}
+
+/**
+ * Fails fast on an AI config that would otherwise only surface at query time as a
+ * Meilisearch "Cannot find embedder" error, or as a silently clamped semantic ratio.
+ */
+function validateAiConfig(ai: AiSearchConfig): void {
+    const embedderNames = Object.keys(ai.embedders ?? {});
+    if (embedderNames.length === 0) {
+        throw new Error('MeilisearchPlugin: `ai.embedders` must define at least one embedder.');
+    }
+    if (ai.defaultEmbedder && !embedderNames.includes(ai.defaultEmbedder)) {
+        throw new Error(
+            `MeilisearchPlugin: ai.defaultEmbedder "${ai.defaultEmbedder}" is not defined in ai.embedders ` +
+                `(available: ${embedderNames.join(', ')}).`,
+        );
+    }
+    if (ai.semanticRatio !== undefined && (ai.semanticRatio < 0 || ai.semanticRatio > 1)) {
+        throw new Error(
+            `MeilisearchPlugin: ai.semanticRatio must be between 0 and 1, got ${ai.semanticRatio}.`,
+        );
+    }
+    for (const [name, embedder] of Object.entries(ai.embedders)) {
+        if ((embedder.source === 'ollama' || embedder.source === 'rest') && !embedder.url) {
+            throw new Error(
+                `MeilisearchPlugin: embedder "${name}" uses source "${embedder.source}" which requires a \`url\`.`,
+            );
+        }
+        if (embedder.source === 'userProvided' && !embedder.dimensions) {
+            throw new Error(
+                `MeilisearchPlugin: embedder "${name}" uses source "userProvided" which requires \`dimensions\`.`,
+            );
+        }
+    }
 }

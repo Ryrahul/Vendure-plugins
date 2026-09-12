@@ -1,4 +1,3 @@
-import { MeiliSearch, Index } from 'meilisearch';
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { unique } from '@vendure/common/lib/unique';
@@ -27,6 +26,7 @@ import {
     Translatable,
     Translation,
 } from '@vendure/core';
+import { Index, IndexSwap, MeiliSearch } from 'meilisearch';
 import { Observable } from 'rxjs';
 import { In, IsNull } from 'typeorm';
 
@@ -44,7 +44,7 @@ import {
     VariantIndexItem,
 } from '../types';
 
-import { getClient, getIndexUid, createIndex, configureIndex } from './indexing-utils';
+import { getClient, getIndexUid, createIndex, configureIndex, waitForTask } from './indexing-utils';
 
 export const defaultProductRelations: Array<EntityRelationPaths<Product>> = [
     'featuredAsset',
@@ -89,6 +89,10 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     ) {}
 
     onModuleInit(): any {
+        // The MeiliSearch JS client is stateless — it wraps fetch with config
+        // and does not maintain connection pools or persistent connections.
+        // A separate instance in MeilisearchService is intentional:
+        // each service owns its own client for clarity and lifecycle isolation.
         this.client = getClient(this.options);
         this.productRelations = this.getReindexRelations(
             defaultProductRelations,
@@ -124,11 +128,14 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
 
     /**
      * Updates the search index when a product is assigned to a channel.
+     * The `channelId` parameter is intentionally unused — by the time this handler
+     * runs, the ProductChannelEvent has already mutated the DB, and
+     * `updateProductsInternal` re-reads the current channel bindings.
      */
     async assignProductToChannel({
         ctx: rawContext,
         productId,
-        channelId,
+        channelId: _channelId,
     }: ProductChannelMessageData): Promise<boolean> {
         const ctx = MutableRequestContext.deserialize(rawContext);
         await this.updateProductsInternal(ctx, [productId]);
@@ -137,11 +144,12 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
 
     /**
      * Updates the search index when a product is removed from a channel.
+     * See `assignProductToChannel` for why `channelId` is unused.
      */
     async removeProductFromChannel({
         ctx: rawContext,
         productId,
-        channelId,
+        channelId: _channelId,
     }: ProductChannelMessageData): Promise<boolean> {
         const ctx = MutableRequestContext.deserialize(rawContext);
         await this.updateProductsInternal(ctx, [productId]);
@@ -184,11 +192,13 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
 
     async deleteVariants({ ctx: rawContext, variantIds }: UpdateVariantMessageData): Promise<boolean> {
         const ctx = MutableRequestContext.deserialize(rawContext);
-        const productIds = await this.getProductIdsByVariantIds(variantIds);
-        for (const productId of productIds) {
-            await this.updateProductsInternal(ctx, [productId]);
-        }
-        return true;
+        return this.asyncQueue.push(async () => {
+            const productIds = await this.getProductIdsByVariantIds(variantIds);
+            for (const productId of productIds) {
+                await this.updateProductsInternal(ctx, [productId]);
+            }
+            return true;
+        });
     }
 
     updateVariantsById({
@@ -222,6 +232,12 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
         });
     }
 
+    /**
+     * Rebuilds the whole index into a fresh temporary index, then atomically swaps it
+     * into place. The three phases — create, populate, promote — are separate methods
+     * below; each cleans up the temporary index if it fails, so a failed reindex never
+     * leaves the live index stale-but-reported-healthy, nor leaves scratch indexes behind.
+     */
     reindex({ ctx: rawContext }: ReindexMessageData): Observable<ReindexMessageResponse> {
         return asyncObservable(async observer => {
             return this.asyncQueue.push(async () => {
@@ -229,87 +245,19 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                 const ctx = MutableRequestContext.deserialize(rawContext);
 
                 const primaryIndexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-                const reindexTimestamp = new Date().getTime();
                 const tempIndexUid = getIndexUid(
                     this.options.indexPrefix,
-                    `${VARIANT_INDEX_NAME}-reindex-${reindexTimestamp}`,
+                    `${VARIANT_INDEX_NAME}-reindex-${new Date().getTime()}`,
                 );
 
-                try {
-                    await createIndex(this.client, tempIndexUid, 'id');
-                    await configureIndex(this.client, tempIndexUid, this.options);
-                } catch (e: any) {
-                    Logger.error('Could not create temporary reindex index.', loggerCtx);
-                    Logger.error(JSON.stringify(e), loggerCtx);
-                    throw e;
-                }
-
-                const totalProductIds = await this.connection.rawConnection
-                    .getRepository(Product)
-                    .createQueryBuilder('product')
-                    .where('product.deletedAt IS NULL')
-                    .getCount();
-
-                Logger.verbose(`Will reindex ${totalProductIds} products`, loggerCtx);
-
-                let productIds: Product[] = [];
-                let skip = 0;
-                let finishedProductsCount = 0;
-                do {
-                    productIds = await this.connection.rawConnection
-                        .getRepository(Product)
-                        .createQueryBuilder('product')
-                        .select('product.id')
-                        .where('product.deletedAt IS NULL')
-                        .skip(skip)
-                        .take(this.options.reindexProductsChunkSize)
-                        .getMany();
-
-                    for (const { id: productId } of productIds) {
-                        await this.updateProductsOperationsOnly(ctx, productId, tempIndexUid);
-                        finishedProductsCount++;
-                        observer.next({
-                            total: totalProductIds,
-                            completed: Math.min(finishedProductsCount, totalProductIds),
-                            duration: +new Date() - timeStart,
-                        });
-                    }
-
-                    skip += this.options.reindexProductsChunkSize;
-
-                    Logger.verbose(`Done ${finishedProductsCount} / ${totalProductIds} products`);
-                } while (productIds.length >= this.options.reindexProductsChunkSize);
-
-                // Atomically swap the temporary index with the primary index
-                try {
-                    // Ensure the primary index exists before swapping
-                    await createIndex(this.client, primaryIndexUid, 'id');
-
-                    // NOTE: `rename` was added in meilisearch SDK v0.53+, but those versions
-                    // are ESM-only ("type": "module") which breaks ts-node/CJS projects.
-                    // We use SDK v0.46 (last CJS build) and cast to `any` here.
-                    // The Meilisearch server (v1.31+) still accepts `rename` at runtime.
-                    // Will switch to new sdk later as i need to actively test this and make changes in dev mode for now 
-                    
-                    // bump the SDK version.
-                    const swapTask = await this.client.swapIndexes([
-                        { indexes: [tempIndexUid, primaryIndexUid], rename: false } as any,
-                    ]);
-                    await this.client.tasks.waitForTask(swapTask.taskUid);
-
-                    // Delete the old index (which is now at the temp UID after swap)
-                    const deleteTask = await this.client.deleteIndex(tempIndexUid);
-                    await this.client.tasks.waitForTask(deleteTask.taskUid);
-                } catch (e: any) {
-                    Logger.error('Could not swap indexes.', loggerCtx);
-                    Logger.error(JSON.stringify(e), loggerCtx);
-                    // Try to clean up the temp index
-                    try {
-                        await this.client.deleteIndex(tempIndexUid);
-                    } catch {
-                        // ignore cleanup errors
-                    }
-                }
+                await this.createTempIndex(tempIndexUid);
+                const totalProductIds = await this.populateTempIndex(
+                    ctx,
+                    tempIndexUid,
+                    timeStart,
+                    progress => observer.next(progress),
+                );
+                await this.swapAndPromote(tempIndexUid, primaryIndexUid);
 
                 Logger.verbose('Completed reindexing!', loggerCtx);
 
@@ -320,6 +268,117 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                 };
             });
         });
+    }
+
+    /**
+     * Reindex phase 1 — create and configure the temporary index the reindex writes into.
+     */
+    private async createTempIndex(tempIndexUid: string): Promise<void> {
+        try {
+            await createIndex(this.client, tempIndexUid, 'id', this.options);
+            await configureIndex(this.client, tempIndexUid, this.options);
+        } catch (e: any) {
+            Logger.error('Could not create temporary reindex index.', loggerCtx);
+            Logger.error(e.message, loggerCtx, e.stack);
+            await this.deleteIndexQuietly(tempIndexUid);
+            throw e;
+        }
+    }
+
+    /**
+     * Reindex phase 2 — write every non-deleted product into the temporary index,
+     * reporting progress as it goes. Returns the total number of products processed.
+     */
+    private async populateTempIndex(
+        ctx: MutableRequestContext,
+        tempIndexUid: string,
+        timeStart: number,
+        onProgress: (progress: ReindexMessageResponse) => void,
+    ): Promise<number> {
+        const totalProductIds = await this.connection.rawConnection
+            .getRepository(Product)
+            .createQueryBuilder('product')
+            .where('product.deletedAt IS NULL')
+            .getCount();
+
+        Logger.verbose(`Will reindex ${totalProductIds} products`, loggerCtx);
+
+        let productIds: Product[] = [];
+        let skip = 0;
+        let finishedProductsCount = 0;
+        try {
+            do {
+                productIds = await this.connection.rawConnection
+                    .getRepository(Product)
+                    .createQueryBuilder('product')
+                    .select('product.id')
+                    .where('product.deletedAt IS NULL')
+                    .skip(skip)
+                    .take(this.options.reindexProductsChunkSize)
+                    .getMany();
+
+                for (const { id: productId } of productIds) {
+                    await this.updateProductsOperationsOnly(ctx, productId, tempIndexUid);
+                    finishedProductsCount++;
+                    onProgress({
+                        total: totalProductIds,
+                        completed: Math.min(finishedProductsCount, totalProductIds),
+                        duration: +new Date() - timeStart,
+                    });
+                }
+
+                skip += this.options.reindexProductsChunkSize;
+
+                Logger.verbose(`Done ${finishedProductsCount} / ${totalProductIds} products`);
+            } while (productIds.length >= this.options.reindexProductsChunkSize);
+        } catch (e: any) {
+            // The temp index is a scratch copy that nothing reads from, so a failed
+            // populate must not leave it behind to accumulate on the Meilisearch
+            // instance. The live index is untouched — the swap never happened.
+            Logger.error(
+                `Reindex failed while populating "${tempIndexUid}": ${e.message as string}`,
+                loggerCtx,
+                e.stack,
+            );
+            await this.deleteIndexQuietly(tempIndexUid);
+            throw e;
+        }
+
+        return totalProductIds;
+    }
+
+    /**
+     * Reindex phase 3 — atomically swap the freshly populated temporary index with the
+     * live index, then drop the old one (which sits at the temp UID after the swap).
+     *
+     * Meilisearch's swapIndexes exchanges documents, settings (filterable, searchable
+     * and sortable attributes, synonyms, typo tolerance, embedders) and task history
+     * between the two indexes in a single atomic operation.
+     * See: https://www.meilisearch.com/docs/reference/api/swap_indexes
+     */
+    private async swapAndPromote(tempIndexUid: string, primaryIndexUid: string): Promise<void> {
+        try {
+            // Ensure the primary index exists before swapping
+            await createIndex(this.client, primaryIndexUid, 'id', this.options);
+
+            // `rename` is only understood by Meilisearch v1.31+, and the SDK types
+            // mark it required. We deliberately omit it so the server applies its
+            // default (a plain swap) — passing it would break older servers, and
+            // passing `rename: false` was observed to prevent index settings
+            // (including embedders) from being carried over.
+            const swapTask = await this.client.swapIndexes([
+                { indexes: [tempIndexUid, primaryIndexUid] } as IndexSwap,
+            ]);
+            await waitForTask(this.client, swapTask.taskUid, this.options);
+
+            const deleteTask = await this.client.deleteIndex(tempIndexUid);
+            await waitForTask(this.client, deleteTask.taskUid, this.options);
+        } catch (e: any) {
+            Logger.error('Could not swap indexes.', loggerCtx);
+            Logger.error(e.message, loggerCtx, e.stack);
+            await this.deleteIndexQuietly(tempIndexUid);
+            throw e;
+        }
     }
 
     async updateAsset(data: UpdateAssetMessageData): Promise<boolean> {
@@ -388,6 +447,10 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     /**
      * Meilisearch doesn't have update_by_query, so we fetch matching documents,
      * modify them, and re-add them (which upserts).
+     *
+     * Note: `offset += limit` is safe here because the upserted documents still
+     * match the original filter (the asset id is unchanged), so the search result
+     * set remains stable across pages.
      */
     private async updateAssetDocuments(
         index: Index,
@@ -406,7 +469,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
 
             const updatedDocs = result.hits.map(hit => updateFn({ ...hit }));
             const task = await index.addDocuments(updatedDocs);
-            await this.client.tasks.waitForTask(task.taskUid);
+            await waitForTask(this.client, task.taskUid, this.options);
 
             hasMore = result.hits.length === limit;
             offset += limit;
@@ -529,10 +592,11 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
         }
         try {
             const task = await index.addDocuments(documents as any[]);
-            await this.client.tasks.waitForTask(task.taskUid);
+            await waitForTask(this.client, task.taskUid, this.options);
             Logger.debug(`Added ${documents.length} documents to index [${index.uid}]`, loggerCtx);
         } catch (e: any) {
-            Logger.error(`Error adding documents: ${JSON.stringify(e)}`, loggerCtx);
+            Logger.error(`Error adding documents: ${e.message}`, loggerCtx, e.stack);
+            throw e;
         }
     }
 
@@ -564,9 +628,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
             .leftJoin('product.translations', 'productTranslations')
             .leftJoin('product.variants', 'productVariant')
             .leftJoin('productVariant.translations', 'productVariantTranslations')
-            .leftJoin('product.channels', 'channel')
             .where('product.id = :productId', { productId })
-            .andWhere('channel.id = :channelId', { channelId: ctx.channelId })
             .getOne();
 
         if (!product) return;
@@ -606,10 +668,11 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                 const chunk = idsToDelete.slice(i, i + chunkSize);
                 try {
                     const task = await index.deleteDocuments(chunk);
-                    await this.client.tasks.waitForTask(task.taskUid);
+                    await waitForTask(this.client, task.taskUid, this.options);
                     Logger.debug(`Deleted ${chunk.length} documents from index [${index.uid}]`, loggerCtx);
                 } catch (e: any) {
-                    Logger.error(`Error deleting documents: ${JSON.stringify(e)}`, loggerCtx);
+                    Logger.error(`Error deleting documents: ${e.message}`, loggerCtx, e.stack);
+                    throw e;
                 }
             }
         }
@@ -711,10 +774,10 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                 collectionSlugs: collectionTranslations.map(c => c.slug),
                 enabled: v.enabled && v.product.enabled,
                 productEnabled: variants.some(variant => variant.enabled) && v.product.enabled,
-                productPriceMin: Math.min(...prices),
-                productPriceMax: Math.max(...prices),
-                productPriceWithTaxMin: Math.min(...pricesWithTax),
-                productPriceWithTaxMax: Math.max(...pricesWithTax),
+                productPriceMin: prices.reduce((a, b) => Math.min(a, b), Infinity),
+                productPriceMax: prices.reduce((a, b) => Math.max(a, b), -Infinity),
+                productPriceWithTaxMin: pricesWithTax.reduce((a, b) => Math.min(a, b), Infinity),
+                productPriceWithTaxMax: pricesWithTax.reduce((a, b) => Math.max(a, b), -Infinity),
                 productFacetIds: this.getFacetIds(variants),
                 productFacetValueIds: this.getFacetValueIds(variants),
                 productCollectionIds: unique(
@@ -745,8 +808,8 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
             }
             return item;
         } catch (err: any) {
-            Logger.error(err.toString());
-            throw Error('Error while reindexing!');
+            Logger.error(err.message, loggerCtx, err.stack);
+            throw err;
         }
     }
 
@@ -793,6 +856,10 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
             productVariantPreviewFocalPoint: undefined,
             price: 0,
             priceWithTax: 0,
+            // Note: prices are indexed in the channel's default currency only,
+            // applied via productPriceApplicator.applyChannelPriceAndTax().
+            // Multi-currency channels will only have the default currency indexed.
+            // This is consistent with the elasticsearch-plugin's behavior.
             currencyCode: ctx.currencyCode,
             description: productTranslation.description,
             facetIds: product.facetValues?.map(fv => fv.facet.id.toString()) ?? [],
@@ -850,6 +917,26 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
         return unique([...variantFacetValueIds, ...productFacetValueIds]);
     }
 
+    /**
+     * Best-effort deletion of an index, used to clean up a temporary reindex index
+     * after a failure. Cleanup errors are swallowed so they cannot mask the original
+     * failure that triggered the cleanup.
+     */
+    private async deleteIndexQuietly(indexUid: string): Promise<void> {
+        try {
+            await this.client.deleteIndex(indexUid);
+            Logger.verbose(`Cleaned up index "${indexUid}"`, loggerCtx);
+        } catch (e: any) {
+            Logger.warn(
+                `Could not clean up index "${indexUid}": ${e.message as string}`,
+                loggerCtx,
+            );
+        }
+    }
+
+    // Note: uses `_` as separator without escaping. This assumes channel IDs and
+    // entity IDs do not contain underscores. This matches the elasticsearch-plugin
+    // convention. Custom ID strategies using `_` could cause collisions.
     static getId(entityId: ID, channelId: ID, languageCode: LanguageCode): string {
         return `${channelId.toString()}_${entityId.toString()}_${languageCode}`;
     }
