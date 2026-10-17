@@ -1,6 +1,6 @@
 {
   "name": "@rahul_vendure/vendure-plugin-channel-product-availability",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Per-channel product enable/disable overrides for Vendure, enforced across catalog, search, cart and checkout",
   "exports": {
     "./package.json": "./package.json",

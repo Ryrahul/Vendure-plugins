@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0
+
+### Changed
+
+- Redesigned the Dashboard "Channel availability" block:
+  - each channel has a **Global / On / Off** segmented control; Global shows what it currently resolves to
+  - an "Available in X of Y channels" summary and a global-status pill
+  - callouts when the product is globally disabled but still sold somewhere, or globally enabled but hidden somewhere
+  - changes apply instantly and roll back if the server rejects them; toasts name the product and channel
+  - readable channel names ("Default channel"), a "Current" marker, and view-only rows (with a lock icon) for channels where the admin lacks update permission
+  - skeleton loading and styled permission/error states; refreshes when the product's own Enabled switch is saved
+
+### Fixed
+
+- Dashboard on Vendure 3.8: the "Unavailable" badge used `variant="secondary"`, which no longer exists in `@vendure-io/ui` 2.x and rendered unstyled. The block now uses only primitives shared by `@vendure-io/ui` 1.x and 2.x.
+
 ## 1.0.0
 
 Initial release.

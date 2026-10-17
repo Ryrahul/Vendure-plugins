@@ -15,7 +15,13 @@ defineDashboardExtension({
             },
             requiresPermission: ['ReadCatalog', 'ReadProduct'],
             shouldRender: context => !!context.entity?.id,
-            component: ({ context }) => <ChannelAvailabilityBlock productId={context.entity.id} />,
+            component: ({ context }) => (
+                <ChannelAvailabilityBlock
+                    productId={context.entity.id}
+                    productName={context.entity.name}
+                    globalEnabledHint={context.entity.enabled}
+                />
+            ),
         },
     ],
 });

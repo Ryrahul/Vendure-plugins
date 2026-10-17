@@ -57,15 +57,14 @@ Indexes: `UNIQUE (productId, channelId)` and `(channelId, enabled)`.
 
 ### Dashboard
 
-The React Dashboard extension is discovered automatically through the plugin's `dashboard` metadata. It adds a **Channel availability** block to the product detail page. For each channel the product is assigned to, the block shows:
+The React Dashboard extension is discovered automatically through the plugin's `dashboard` metadata. It adds a **Channel availability** block to the product detail page:
 
-- whether the product is available there
-- whether that comes from the global flag or from an override
-- buttons to enable, disable, or go back to the global flag (**Use global**)
+- a **Global / On / Off** control per channel. *Global* follows the product's own Enabled switch; *On* and *Off* override it for that channel only.
+- an "Available in X of Y channels" summary and a callout when the global switch and a channel disagree (e.g. "Disabled globally, but still sold in UK")
+- changes apply instantly and roll back if the server rejects them
+- channels where the admin has read but not update permission are shown as **view only**; channels the admin can't read at all are not listed
 
-The block also warns when a product is disabled globally but explicitly enabled somewhere. Channels where the admin can't update show as read-only.
-
-The backend works without the Dashboard.
+Rendered and click-tested in light and dark themes on Vendure 3.6 (`@vendure-io/ui` 1.x). It uses only components whose API is identical in `@vendure-io/ui` 2.x (Vendure 3.8), but it has not been rendered on 3.8 yet. The backend works without the Dashboard.
 
 ## Options
 
