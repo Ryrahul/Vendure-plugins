@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@rahul_vendure/vendure-meilli-search": "*",
+    "@rahul_vendure/vendure-plugin-channel-product-availability": "*",
     "@rahul_vendure/vendure-plugin-extra-promotions": "*",
     "@rahul_vendure/vendure-plugin-faq": "*",
     "@rahul_vendure/vendure-plugin-order-export": "*",

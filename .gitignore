@@ -40,3 +40,6 @@ apps/dev-server/static/email/test-emails/
 apps/dev-server/.vendure/
 apps/dev-server/src/codegen/
 apps/dev-server/src/gql/
+
+# Test caches
+**/e2e/__data__/

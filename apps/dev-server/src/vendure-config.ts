@@ -16,6 +16,7 @@ import { FaqPlugin } from '@rahul_vendure/vendure-plugin-faq';
 import { ExtraPromotionsPlugin } from '@rahul_vendure/vendure-plugin-extra-promotions';
 import { MeilisearchPlugin } from '@rahul_vendure/vendure-meilli-search';
 import { OrderExportPlugin } from '@rahul_vendure/vendure-plugin-order-export';
+import { ChannelProductAvailabilityPlugin } from '@rahul_vendure/vendure-plugin-channel-product-availability';
 import { SwiftSmsProvider } from './providers/swift-sms.provider';
 import 'dotenv/config';
 import path from 'path';
@@ -178,5 +179,6 @@ export const config: VendureConfig = {
             openAiApiKey: process.env.OPENAI_API_KEY || '',
             openAiModel: 'gpt-4o-mini',
         }),
+        ChannelProductAvailabilityPlugin.init(),
     ],
 };

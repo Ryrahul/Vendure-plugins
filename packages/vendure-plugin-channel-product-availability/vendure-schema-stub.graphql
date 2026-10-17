@@ -1,0 +1,32 @@
+# Stub definitions for Vendure core types used in API extensions.
+# These allow graphql-codegen to parse the plugin schema without
+# needing to introspect a full running Vendure server.
+#
+# Types like LanguageCode, DeletionResponse, DeletionResult are
+# treated as scalars here and mapped to their @vendure/common imports
+# in the codegen config, so they are NOT re-generated.
+
+scalar DateTime
+scalar LanguageCode
+
+interface Node {
+  id: ID!
+}
+
+interface PaginatedList {
+  items: [Node!]!
+  totalItems: Int!
+}
+
+type DeletionResponse {
+  result: DeletionResult!
+  message: String
+}
+
+enum DeletionResult {
+  DELETED
+  NOT_DELETED
+}
+
+type Query
+type Mutation

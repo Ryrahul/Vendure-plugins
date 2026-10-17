@@ -7,6 +7,7 @@ A monorepo of independently publishable [Vendure](https://www.vendure.io/) plugi
 | Package | Version | Description |
 |---------|---------|-------------|
 | [`@rahul_vendure/vendure-meilli-search`](./packages/vendure-meilli-search) | 2.0.0 | Drop-in Meilisearch replacement for Vendure's DefaultSearchPlugin. Full-text, faceted, and AI-powered hybrid/semantic search with automatic index syncing. |
+| [`@rahul_vendure/vendure-plugin-channel-product-availability`](./packages/vendure-plugin-channel-product-availability) | 1.0.0 | Per-channel product enable/disable overrides, enforced across Shop API catalog, search, cart and checkout. Admin API + dashboard block. Tested on Vendure 3.6.1 and 3.8.0. |
 | [`@rahul_vendure/vendure-plugin-extra-promotions`](./packages/vendure-plugin-extra-promotions) | 1.1.0 | 9 extra promotion conditions and 5 actions (collection discounts, cross-sell, happy hours, stock clearance, and more). Includes a dashboard UI. |
 | [`@rahul_vendure/vendure-plugin-faq`](./packages/vendure-plugin-faq) | 1.0.7 | FAQ management with i18n translations, multi-channel support, Admin + Shop API extensions, and a dashboard panel. |
 | [`@rahul_vendure/vendure-plugin-phone-auth`](./packages/vendure-plugin-phone-auth) | 1.0.5 | Phone number + OTP authentication for the Shop API. Pluggable SMS providers, phone validation via `libphonenumber-js`, configurable OTP settings. |
@@ -42,6 +43,7 @@ git submodule update --init --recursive
 /
 ├── packages/                     # Publishable plugins
 │   ├── vendure-meilli-search/
+│   ├── vendure-plugin-channel-product-availability/
 │   ├── vendure-plugin-extra-promotions/
 │   ├── vendure-plugin-faq/
 │   ├── vendure-plugin-phone-auth/
@@ -111,6 +113,17 @@ npm run build -w packages/vendure-plugin-<name>
 npm run watch -w packages/vendure-plugin-<name>
 ```
 
+### Testing
+
+Plugins with database, API or order logic have e2e tests built on `@vendure/testing` and Vitest (with `unplugin-swc` for decorator metadata):
+
+```bash
+npm test -w packages/vendure-plugin-<name>                     # unit + e2e (in-memory sql.js)
+TEST_DB=postgres npm test -w packages/vendure-plugin-<name>    # e2e on a real Postgres (PGHOST/PGUSER/PGPASSWORD)
+```
+
+The workspace root pins `@vendure/core` via `overrides`. To test against another Vendure release, use the isolated compat script (see `packages/vendure-plugin-channel-product-availability/scripts/test-against-vendure.sh`).
+
 ### GraphQL Codegen
 
 Plugins that extend the GraphQL API use per-plugin `@graphql-codegen` to generate typed inputs and args. Types are regenerated automatically during `npm run build`, or manually:
@@ -133,7 +146,7 @@ Generated types are committed to git. Do **not** manually define GraphQL input/a
 
 2. **Create `package.json`** with the `@rahul_vendure/` scope, `@vendure/core ^3.0.0` as a peer dependency, and the standard build scripts. See any existing plugin for a template.
 
-3. **Create `tsconfig.json`** extending `../../tsconfig.base.json` with `outDir: "dist"` and `rootDir: "src"`. Exclude `src/dashboard` if the plugin has a dashboard extension.
+3. **Create `tsconfig.build.json`** (compiles `src` to `dist/`, excluding `src/dashboard` and specs) and a no-emit **`tsconfig.json`** that also typechecks `e2e/` and `example/`. Both extend `../../tsconfig.base.json`.
 
 4. **Write the plugin** following the standard file layout:
 
@@ -159,7 +172,8 @@ Generated types are committed to git. Do **not** manually define GraphQL input/a
 
 ### Code Guidelines
 
-- Plugins do **not** ship migrations. Document any schema changes in the plugin's README so consumers know to run `npx vendure migrate`.
+- Plugins never run migrations or ship database-specific SQL. Document any schema changes in the plugin's README so consumers know to run `npx vendure migrate`. A plugin that adds its own table may also export an opt-in, metadata-built migration (see the channel-product-availability plugin).
+- Add e2e tests for anything touching the database, the API or orders, and only claim compatibility with Vendure versions the tests actually ran on.
 - Only `dist/` and `src/dashboard/` are published. Never publish raw backend source.
 - Follow [semantic versioning](https://semver.org/): patch for bug fixes, minor for new features or entity changes, major for breaking changes.
 
@@ -167,15 +181,19 @@ Generated types are committed to git. Do **not** manually define GraphQL input/a
 
 ```bash
 cd packages/vendure-plugin-<name>
+npm run typecheck
+npm test
 npm run build
-npm pack          # inspect the tarball contents
-npm publish --access public
+npm pack --dry-run   # inspect exactly what will be published
+npm publish          # packages set publishConfig.access=public
 ```
 
 Verify before publishing:
+- Typecheck and tests pass (Postgres too, for plugins with entities)
 - `dist/` contains compiled JS and `.d.ts` files
 - `src/dashboard/` is included if the plugin has a dashboard
-- No `src/entities/`, `src/services/`, etc. leak into the package
+- No backend `src/**/*.ts`, specs, `e2e/` or `example/` leak into the package
+- README, CHANGELOG (entry for this version) and LICENSE are included
 - Version is bumped appropriately
 
 ## License
