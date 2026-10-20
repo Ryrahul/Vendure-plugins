@@ -21,9 +21,9 @@ The AI chat packages live in a separate repository and are included here as a [G
 
 | Package | Description |
 |---------|-------------|
-| [`@rahul_vendure/ai-chat-plugin`](./packages/vendure-ai/packages/ai-chat-plugin) | AI-powered shopping assistant plugin for Vendure — LLM chat with 19 built-in tools, pgvector semantic search, cart management, order tracking, checkout assistance, and an admin dashboard chat. Requires PostgreSQL with pgvector and an OpenAI API key. |
+| [`@rahul_vendure/ai-chat-plugin`](./packages/vendure-ai/packages/ai-chat-plugin) | AI assistant plugin for Vendure — storefront shopping chat (search through your configured search engine, pgvector semantic search, cart, checkout, order tracking) and an admin assistant with permission-gated tools, confirmations, and business insights (sales, 30-day forecast, inventory plan, competitor research on the web). Works with OpenAI, Azure OpenAI or any AI SDK model (Anthropic, Ollama, vLLM, DeepSeek…), with pluggable embeddings and web search. Requires PostgreSQL with pgvector. |
 | [`@rahul_vendure/ai-chat-react`](./packages/vendure-ai/packages/ai-chat-react) | Drop-in AI shopping assistant React component for Vendure stores. Renders a floating chat panel with product cards, collection badges, cart summary, and quick actions. Ships pre-compiled CSS, supports dark mode, and works with Next.js, Remix, Vite, CRA, etc. Pairs with `@rahul_vendure/ai-chat-plugin`. |
-| [`@rahul_vendure/ai-chat-dashboard`](./packages/vendure-ai/packages/ai-chat-dashboard) | Admin dashboard extension for the AI chat plugin. |
+| [`@rahul_vendure/ai-chat-dashboard`](./packages/vendure-ai/packages/ai-chat-dashboard) | Admin dashboard extension for the AI chat plugin — chat page with product/order cards, confirm buttons for destructive actions, and charts/tables for sales, forecasts, inventory and web sources. |
 
 To clone this repo with the submodule included:
 
