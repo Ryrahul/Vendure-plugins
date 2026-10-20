@@ -25,6 +25,8 @@ The AI chat packages live in a separate repository and are included here as a [G
 | [`@rahul_vendure/ai-chat-react`](./packages/vendure-ai/packages/ai-chat-react) | Drop-in AI shopping assistant React component for Vendure stores. Renders a floating chat panel with product cards, collection badges, cart summary, and quick actions. Ships pre-compiled CSS, supports dark mode, and works with Next.js, Remix, Vite, CRA, etc. Pairs with `@rahul_vendure/ai-chat-plugin`. |
 | [`@rahul_vendure/ai-chat-dashboard`](./packages/vendure-ai/packages/ai-chat-dashboard) | Admin dashboard extension for the AI chat plugin — chat page with product/order cards, confirm buttons for destructive actions, and charts/tables for sales, forecasts, inventory and web sources. |
 
+Local development, tests and releasing for these packages: see the [Vendure AI README](./packages/vendure-ai/README.md).
+
 To clone this repo with the submodule included:
 
 ```bash
