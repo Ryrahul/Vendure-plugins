@@ -138,6 +138,22 @@ describe('Meilisearch indexing and search', () => {
         expect(search.prices.buckets[0]).toEqual({ to: 10000, count: 1 });
     });
 
+    it('re-indexes the products of a new collection in one batched job', async () => {
+        const { facetValues } = await adminClient.query(gql`{ facetValues(options: { filter: { name: { eq: "electronics" } } }) { items { id } } }`);
+        await adminClient.query(
+            gql`mutation ($fv: String!) { createCollection(input: { translations: [{ languageCode: en, name: "Gadgets", slug: "gadgets", description: "" }],
+                filters: [{ code: "facet-value-filter", arguments: [{ name: "facetValueIds", value: $fv }, { name: "containsAny", value: "false" }] }] }) { id } }`,
+            { fv: JSON.stringify([facetValues.items[0].id]) },
+        );
+        await awaitRunningJobs(adminClient);
+        const { search } = await shopClient.query(SEARCH, { input: { groupByProduct: true, collectionSlug: 'gadgets' } });
+        expect(search.totalItems).toBe(4);
+        const { results } = await meiliClient()
+            .index(`${PREFIX}variants`)
+            .getDocuments({ filter: 'collectionSlugs = "gadgets"', fields: ['id'] });
+        expect(results).toHaveLength(5);
+    });
+
     it('removes the documents of a deleted variant', async () => {
         const { search: before } = await adminClient.query(SEARCH, { input: { term: 'laptop' } });
         expect(before.items.map((i: any) => i.sku).sort()).toEqual(['L13', 'L15']);

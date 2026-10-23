@@ -3,6 +3,37 @@
 All notable changes to `@rahul_vendure/vendure-meilli-search` are documented here.
 This project follows [semantic versioning](https://semver.org/).
 
+## 3.0.1
+
+Fixes found by testing 3.0.0 from npm in a shop with 5,000 products (about 20,000 search
+documents) and Azure OpenAI embeddings, on Vendure 3.5.4 and 3.8.0.
+
+### Fixed
+
+- **Crash at startup on Vendure 3.8.** The health indicator imported `@nestjs/terminus`, which
+  Vendure 3.8 no longer ships. The plugin no longer depends on it; on Vendure 3.0–3.5 the
+  `/health` endpoint still reports Meilisearch (since Vendure 3.6, plugin health indicators are
+  ignored by Vendure).
+- **`npm install` failed in a fresh project** (`ERESOLVE`, also in 2.x). The plugin listed
+  `typeorm`, `@nestjs/*`, `graphql`, `graphql-tag` and `rxjs` as peer dependencies; npm installs
+  peers and their optional peers, which conflicted. These all come with `@vendure/core`, so the
+  peers are now only `@vendure/core` and `@vendure/common`, as in Vendure's own plugins.
+- **Grouped facet and collection counts were per variant on catalogues with more than 1,000
+  matching variants** (3.0.0 only counted products exactly below that size). Each value's
+  product count now comes from a `distinct` count query, all in one multi-search request, so
+  the counts are exact at any size. `searchConfig.groupedFacetCountLimit` has no effect anymore.
+- **Updating many products was very slow.** A collection change re-indexes all its products in
+  one job, and each product waited for its own Meilisearch task (each calling the embedding
+  provider with AI search on): about 3 hours for 5,000 products. Documents are now sent in
+  `reindexBatchSize` batches like a full reindex, which took about 3 minutes in the same shop.
+  Products still never disappear from search while they're updated.
+
+### Docs
+
+- Hybrid search with a remote embedding provider: Meilisearch (1.44+) gives the query embedding
+  `searchCutoffMs` (default 1.5 s) and silently falls back to keyword results when the provider
+  is slower. See *Slow embedding providers* in the README.
+
 ## 3.0.0
 
 Brings the plugin in line with current Meilisearch (tested with v1.13 and v1.55) and fixes

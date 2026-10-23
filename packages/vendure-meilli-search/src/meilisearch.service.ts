@@ -436,14 +436,15 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
 
     /**
      * Counts the results per value of a list attribute (facet value or collection ids), keeping
-     * the `maxSize` most frequent values. Same semantics as Vendure's Elasticsearch plugin: the
-     * variant-level attribute is counted, and with `groupByProduct` / `groupBySKU` each value
-     * counts the distinct products / SKUs among the matching variants.
+     * the `maxSize` most frequent values. Same semantics as Vendure's Elasticsearch plugin (a terms
+     * aggregation ordered by variant count, with a distinct count per value when grouped):
      *
-     * Meilisearch's facet distribution counts documents (variants), even with `distinct`, so for
-     * grouped results the matching variants are fetched (only the two attributes needed) and
-     * counted here, as long as there are at most `searchConfig.groupedFacetCountLimit` of them.
-     * For larger results the per-variant facet distribution from the same request is used.
+     * - Not grouped: the number of matching variants with the value (Meilisearch's facet
+     *   distribution).
+     * - `groupByProduct` / `groupBySKU`: the number of distinct products / SKUs among the matching
+     *   variants with the value. Meilisearch's facet distribution always counts documents, so each
+     *   value's count comes from a `distinct` count query; all of them go in one multi-search
+     *   request, and they are exact whatever the catalogue size (up to `pagination.maxTotalHits`).
      */
     private async countValues(
         ctx: RequestContext,
@@ -452,33 +453,31 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
         field: string,
         maxSize: number,
     ): Promise<Map<string, number>> {
-        const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
+        const indexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
         const filter = buildFilter(ctx, input, enabledOnly);
-        const { groupedFacetCountLimit, totalItemsMaxSize } = this.options.searchConfig;
+        const term = input.term || '';
+        const result = await this.client
+            .index(indexUid)
+            .search(term, { filter, facets: [field], offset: 0, limit: 0 });
+        const variantCounts = Object.entries(result.facetDistribution?.[field] ?? {})
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, maxSize);
+
         const groupKey = input.groupByProduct ? 'productId' : input.groupBySKU ? 'sku' : undefined;
-        const hitLimit = groupKey ? Math.min(groupedFacetCountLimit, totalItemsMaxSize) : 0;
-
-        const params: MeilisearchQueryParams =
-            groupKey && hitLimit > 0
-                ? { filter, facets: [field], page: 1, hitsPerPage: hitLimit, attributesToRetrieve: [field, groupKey] }
-                : { filter, facets: [field], offset: 0, limit: 0 };
-        const result = await index.search(input.term || '', params);
-
-        let counts: Array<[string, number]>;
-        if (groupKey && hitLimit > 0 && ((result as any).totalHits ?? Infinity) <= hitLimit) {
-            const groupsByValue = new Map<string, Set<string>>();
-            for (const hit of result.hits as any[]) {
-                for (const id of hit[field] ?? []) {
-                    const groups = groupsByValue.get(String(id)) ?? new Set<string>();
-                    groups.add(String(hit[groupKey]));
-                    groupsByValue.set(String(id), groups);
-                }
-            }
-            counts = [...groupsByValue].map(([value, groups]) => [value, groups.size]);
-        } else {
-            counts = Object.entries(result.facetDistribution?.[field] ?? {});
+        if (!groupKey || !variantCounts.length) {
+            return new Map(variantCounts);
         }
-        return new Map(counts.sort((a, b) => b[1] - a[1]).slice(0, maxSize));
+        const { results } = await this.client.multiSearch({
+            queries: variantCounts.map(([value]) => ({
+                indexUid,
+                q: term,
+                filter: [...(filter ? [filter] : []), `${field} = "${escapeFilterValue(value)}"`],
+                distinct: groupKey,
+                page: 1,
+                hitsPerPage: 0,
+            })),
+        });
+        return new Map(variantCounts.map(([value], i) => [value, (results[i] as any).totalHits ?? 0]));
     }
 
     async priceRange(ctx: RequestContext, input: MeilisearchSearchInput): Promise<SearchPriceData> {

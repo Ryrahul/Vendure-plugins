@@ -197,9 +197,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
         const ctx = MutableRequestContext.deserialize(rawContext);
         return this.asyncQueue.push(async () => {
             const productIds = await this.getProductIdsByVariantIds(variantIds);
-            for (const productId of productIds) {
-                await this.updateProductsInternal(ctx, [productId]);
-            }
+            await this.updateProductsInternal(ctx, productIds);
             return true;
         });
     }
@@ -214,16 +212,13 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                 const timeStart = Date.now();
                 const productIds = await this.getProductIdsByVariantIds(ids);
                 if (productIds.length) {
-                    let finishedProductsCount = 0;
-                    for (const productId of productIds) {
-                        await this.updateProductsInternal(ctx, [productId]);
-                        finishedProductsCount++;
+                    await this.updateProductsInternal(ctx, productIds, completed =>
                         observer.next({
                             total: productIds.length,
-                            completed: Math.min(finishedProductsCount, productIds.length),
+                            completed,
                             duration: +new Date() - timeStart,
-                        });
-                    }
+                        }),
+                    );
                 }
                 Logger.verbose('Completed updating variants', loggerCtx);
                 return {
@@ -476,32 +471,59 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     }
 
     /**
-     * Re-indexes products in the live index. The new documents are written first and documents
-     * that no longer exist (a removed variant, channel or translation) are deleted afterwards,
-     * so a product never disappears from search while it is being updated.
+     * Re-indexes products in the live index.
+     *
+     * The new documents are written first and documents that no longer exist (a removed variant,
+     * channel or translation) are deleted afterwards, so a product never disappears from search
+     * while it is being updated. Meilisearch processes an index's tasks in the order they were
+     * enqueued, so each delete is applied after the additions sent before it.
+     *
+     * Documents of many products are sent together in batches of `reindexBatchSize` without
+     * waiting for each product: a collection change can re-index thousands of products, and one
+     * Meilisearch task per product (each calling the embedding provider) would take hours. All
+     * tasks are checked at the end, so a failure still fails the job.
      */
-    private async updateProductsInternal(ctx: MutableRequestContext, productIds: ID[]) {
+    private async updateProductsInternal(
+        ctx: MutableRequestContext,
+        productIds: ID[],
+        onProductDone?: (completed: number) => void,
+    ) {
         Logger.debug(`Updating ${productIds.length} Products`, loggerCtx);
         const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
-        for (const productId of productIds) {
-            const documents = await this.buildProductDocuments(ctx, productId);
-            const existingIds = await this.getDocumentIds(index, this.productFilter(productId));
-
-            for (let i = 0; i < documents.length; i += this.options.reindexBatchSize) {
-                const chunk = documents.slice(i, i + this.options.reindexBatchSize);
-                const task = await index.addDocuments(chunk as any[]);
-                await waitForTask(this.client, task.taskUid, this.options);
-                Logger.debug(`Added ${chunk.length} documents to index [${index.uid}]`, loggerCtx);
+        const pendingTasks: number[] = [];
+        let documents: VariantIndexItem[] = [];
+        let staleIds: string[] = [];
+        const flush = async () => {
+            if (documents.length) {
+                pendingTasks.push((await index.addDocuments(documents as any[])).taskUid);
+                Logger.debug(`Enqueued ${documents.length} documents for [${index.uid}]`, loggerCtx);
             }
-
-            const currentIds = new Set(documents.map(doc => doc.id));
-            const staleIds = existingIds.filter(id => !currentIds.has(id));
             if (staleIds.length) {
-                const task = await index.deleteDocuments(staleIds);
-                await waitForTask(this.client, task.taskUid, this.options);
-                Logger.debug(`Deleted ${staleIds.length} stale documents from index [${index.uid}]`, loggerCtx);
+                pendingTasks.push((await index.deleteDocuments(staleIds)).taskUid);
+                Logger.debug(`Enqueued deletion of ${staleIds.length} stale documents from [${index.uid}]`, loggerCtx);
             }
+            documents = [];
+            staleIds = [];
+            while (pendingTasks.length > MAX_PENDING_BATCHES) {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                await waitForTask(this.client, pendingTasks.shift()!, this.options);
+            }
+        };
+
+        let completed = 0;
+        for (const productId of productIds) {
+            const productDocuments = await this.buildProductDocuments(ctx, productId);
+            const existingIds = await this.getDocumentIds(index, this.productFilter(productId));
+            const currentIds = new Set(productDocuments.map(doc => doc.id));
+            documents.push(...productDocuments);
+            staleIds.push(...existingIds.filter(id => !currentIds.has(id)));
+            if (documents.length >= this.options.reindexBatchSize) {
+                await flush();
+            }
+            onProductDone?.(++completed);
         }
+        await flush();
+        await waitForTasks(this.client, pendingTasks, this.options);
     }
 
     /**

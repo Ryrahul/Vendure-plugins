@@ -14,11 +14,11 @@ A Vendure plugin that replaces the default search with [Meilisearch](https://www
 - Configurable matching strategy, highlighting, cropping, and ranking
 - Custom product & variant field mappings
 - Buffered index updates
-- Health check endpoint
+- Health check on `/health` (Vendure 3.0–3.5; Vendure 3.6+ no longer runs plugin health checks)
 
 ## Requirements
 
-- Vendure `^3.0.0`
+- Vendure `^3.0.0` (tested with 3.5 and 3.8)
 - Node.js **20.19+ or 22.12+** (the Meilisearch JS SDK is ESM-only and is loaded with `require(esm)`)
 - A running [Meilisearch](https://www.meilisearch.com/docs/learn/getting_started/cloud_quick_start) instance **v1.6 or later** (required for `matchingStrategy: 'frequency'`, `distinct`, `facetStats`, and `swapIndexes` features used by this plugin). Tested with **v1.13** and **v1.55**. On v1.14+ the plugin uses [granular filterable attributes](https://www.meilisearch.com/docs/reference/api/settings#filterable-attributes), which make indexing cheaper.
 - For AI hybrid search: Meilisearch **v1.13 or later** with the vector store available, plus an embedding provider (OpenAI, HuggingFace, Ollama, a REST embedder, or your own vectors)
@@ -125,7 +125,6 @@ MeilisearchPlugin.init({
     collectionMaxSize: 50,
     totalItemsMaxSize: 10000,
     priceRangeBucketInterval: 1000,       // Price bucket width (in currency subunits)
-    groupedFacetCountLimit: 1000,         // Exact product counts for facets up to this many matching variants
 
     // Hooks
     mapQuery: (query, input, searchConfig, channelId, enabledOnly, ctx) => {
@@ -371,6 +370,39 @@ If you want `totalItems` to mean "results worth showing", set a
 the third query above returns 1036 with no threshold, 104 at `0.1`, and 19 at `0.2`.
 The plugin applies the same threshold to `similarDocuments`.
 
+### Slow embedding providers
+
+Every hybrid search first embeds the query with the provider. Meilisearch (1.44+) allows that call as long as the index's `searchCutoffMs` (default **1.5 s**), and when the provider is slower it **silently returns keyword-only results**: the response has `semanticHitCount: 0` and only Meilisearch's own log shows `Could not embed due to deadline`. Remote providers can exceed 1.5 s; in testing, Azure OpenAI from Asia regularly did. Raise the limit:
+
+```ts
+MeilisearchPlugin.init({
+  ai: { /* … */ },
+  indexSettings: { searchCutoffMs: 5000 },
+})
+```
+
+The setting is applied at the next start, without a reindex.
+
+### Azure OpenAI
+
+Use the `rest` source:
+
+```ts
+ai: {
+  embedders: {
+    default: {
+      source: 'rest',
+      url: `https://${resource}.cognitiveservices.azure.com/openai/deployments/${deployment}/embeddings?api-version=2024-10-21`,
+      headers: { 'api-key': process.env.AZURE_OPENAI_API_KEY },
+      request: { input: ['{{text}}', '{{..}}'] },
+      response: { data: [{ embedding: '{{embedding}}' }, '{{..}}'] },
+      dimensions: 1536,                    // text-embedding-3-small
+      documentTemplate: "A product called '{{doc.productName}}': {{doc.description | truncatewords: 25}}",
+    },
+  },
+},
+```
+
 ### Semantic Ratio
 
 Controls the balance between keyword and semantic results:
@@ -446,7 +478,7 @@ All buckets are counted in a single [multi-search](https://www.meilisearch.com/d
 - Not grouped: the number of matching **variants** with that facet value / in that collection.
 - `groupByProduct: true` (or `groupBySKU`): the number of distinct **products** (SKUs) with a matching variant that has the value.
 
-Meilisearch's facet distribution always counts documents (variants), so for grouped searches the plugin counts products itself, as long as at most `searchConfig.groupedFacetCountLimit` (default 1000) variants match. For bigger result sets it falls back to Meilisearch's per-variant counts. Values are returned most frequent first.
+Meilisearch's facet distribution always counts documents (variants), so for grouped searches the plugin gets each value's product count from a `distinct` count query. All of them go in one multi-search request, and the counts are exact at any catalogue size. Values are ordered by variant count, most frequent first, like the Elasticsearch plugin's terms aggregation.
 
 ## Result Limits
 

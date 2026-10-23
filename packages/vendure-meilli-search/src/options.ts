@@ -558,14 +558,7 @@ export interface SearchConfig {
      */
     priceRangeBucketInterval?: number;
     /**
-     * @description
-     * With `groupByProduct` (or `groupBySKU`), facet value and collection counts are product (SKU)
-     * counts, as in Vendure's Elasticsearch plugin. Meilisearch counts documents (variants) in its facet
-     * distribution, so the plugin counts the products itself when at most this many variants match.
-     * Above it, the counts fall back to Meilisearch's per-variant counts. Set to `0` to always use
-     * Meilisearch's counts.
-     *
-     * @default 1000
+     * @deprecated Has no effect since 3.0.1: grouped facet and collection counts are always exact.
      */
     groupedFacetCountLimit?: number;
 
@@ -801,7 +794,6 @@ export interface SearchConfigDefaults {
     collectionMaxSize: number;
     totalItemsMaxSize: number;
     priceRangeBucketInterval: number;
-    groupedFacetCountLimit: number;
     mapQuery: (
         query: MeilisearchQueryParams,
         input: MeilisearchSearchInput,
@@ -839,7 +831,6 @@ export const defaultOptions: MeilisearchRuntimeOptions = {
         collectionMaxSize: 50,
         totalItemsMaxSize: 10000,
         priceRangeBucketInterval: 1000,
-        groupedFacetCountLimit: 1000,
         mapQuery: query => query,
         mapSort: sort => sort,
     },
