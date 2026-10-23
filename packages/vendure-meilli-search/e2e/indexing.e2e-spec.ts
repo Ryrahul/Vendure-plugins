@@ -101,6 +101,13 @@ describe('Meilisearch indexing and search', () => {
         expect(search.collections.find((c: any) => c.collection.name === 'Electronics').count).toBe(5);
     });
 
+    it('counts SKUs with groupBySKU', async () => {
+        const { search } = await shopClient.query(SEARCH, { input: { groupBySKU: true, take: 10 } });
+        expect(search.totalItems).toBe(6);
+        expect(search.facetValues.find((f: any) => f.facetValue.name === 'electronics').count).toBe(5);
+        expect(search.facetValues.find((f: any) => f.facetValue.name === 'audio').count).toBe(1);
+    });
+
     it('orders facet values by count', async () => {
         const { search } = await shopClient.query(SEARCH, { input: { groupByProduct: true } });
         expect(search.facetValues.map((f: any) => f.facetValue.name)).toEqual(['electronics', 'audio']);
