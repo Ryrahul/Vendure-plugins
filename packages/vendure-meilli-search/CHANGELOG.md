@@ -27,9 +27,18 @@ documents) and Azure OpenAI embeddings, on Vendure 3.5.4 and 3.8.0.
   provider with AI search on): about 3 hours for 5,000 products. Documents are now sent in
   `reindexBatchSize` batches like a full reindex, which took about 3 minutes in the same shop.
   Products still never disappear from search while they're updated.
+- **A reindex with AI embeddings could fail with a task timeout.** Up to 10 document batches
+  were enqueued at once, and Meilisearch merges enqueued document tasks into one batch; with a
+  slow embedding provider a merged batch of 5,000 documents took longer than `taskTimeout`.
+  At most 2 batches are now in flight (one processing, one queued), which keeps Meilisearch
+  just as busy. The failed reindex had left the live index untouched.
 
 ### Docs
 
+- Sorting or filtering by a custom mapping needs the field in `indexSettings.sortableAttributes`
+  / `filterableAttributes` (as `product-<name>` / `variant-<name>`); the `mapSort` example now
+  says so.
+- How `ai.semanticRatio` affects typo-heavy queries.
 - Hybrid search with a remote embedding provider: Meilisearch (1.44+) gives the query embedding
   `searchCutoffMs` (default 1.5 s) and silently falls back to keyword results when the provider
   is slower. See *Slow embedding providers* in the README.

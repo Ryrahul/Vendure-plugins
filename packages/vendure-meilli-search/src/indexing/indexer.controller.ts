@@ -46,8 +46,13 @@ import { escapeFilterValue } from '../build-search-query';
 
 import { configureIndex, createIndex, getClient, getIndexUid, waitForTask, waitForTasks } from './indexing-utils';
 
-/** Document batches a reindex may have enqueued in Meilisearch before it waits for the oldest. */
-const MAX_PENDING_BATCHES = 10;
+/**
+ * Document batches that may be enqueued in Meilisearch before waiting for the oldest. Meilisearch
+ * processes batches one after another, so one processing plus one queued keeps it busy. More gains
+ * nothing and is harmful: Meilisearch merges all enqueued document tasks into one batch, and with
+ * AI embeddings a merged batch of several thousand documents can outlast `taskTimeout`.
+ */
+const MAX_PENDING_BATCHES = 2;
 
 export const defaultProductRelations: Array<EntityRelationPaths<Product>> = [
     'featuredAsset',
@@ -287,10 +292,10 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
      * Reindex phase 2 — write every non-deleted product into the temporary index,
      * reporting progress as it goes. Returns the total number of products processed.
      *
-     * Documents of many products are sent together in batches of `reindexBatchSize`, and the
-     * batches are enqueued without waiting for each one: Meilisearch processes consecutive
-     * document tasks together, which is much faster than one task per product. At most
-     * `MAX_PENDING_BATCHES` are in flight; all of them must succeed before the swap.
+     * Documents of many products are sent together in batches of `reindexBatchSize`, so the next
+     * batch is built while Meilisearch indexes the previous one, which is much faster than one task
+     * per product. At most `MAX_PENDING_BATCHES` are in flight; all of them must succeed before the
+     * swap.
      */
     private async populateTempIndex(
         ctx: MutableRequestContext,
