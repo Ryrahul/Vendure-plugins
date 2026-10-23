@@ -3,8 +3,15 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "composite": true
+    "composite": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   },
-  "include": ["src"],
-  "exclude": ["src/dashboard", "src/**/*.spec.ts"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/dashboard",
+    "src/**/*.spec.ts"
+  ]
 }

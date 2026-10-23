@@ -43,3 +43,6 @@ apps/dev-server/src/gql/
 
 # Test caches
 **/e2e/__data__/
+
+# Vendure telemetry id created by e2e test servers
+packages/*/.vendure/

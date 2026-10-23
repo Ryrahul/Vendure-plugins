@@ -3,6 +3,75 @@
 All notable changes to `@rahul_vendure/vendure-meilli-search` are documented here.
 This project follows [semantic versioning](https://semver.org/).
 
+## 3.0.0
+
+Brings the plugin in line with current Meilisearch (tested with v1.13 and v1.55) and fixes
+four indexing and counting bugs, each reproduced against a real Meilisearch server first.
+The search schema and results stay compatible with Vendure's Elasticsearch plugin.
+
+### Breaking changes
+
+- **Node.js 20.19+ or 22.12+ is required.** The Meilisearch JS SDK is upgraded from 0.55 to
+  0.62, which is ESM-only and is loaded through `require(esm)`.
+- **Index settings are synced at startup and options you remove are reset.** Deleting
+  `synonyms`, `stopWords`, `rankingRules`, `typoTolerance` or an embedder from the config
+  now resets it in Meilisearch on the next start. Changes made directly in Meilisearch to
+  the settings the plugin manages are overwritten; put them in the new `indexSettings` option.
+- **Grouped facet and collection counts are product counts** (see Fixed). Storefronts showing
+  these numbers will see smaller, correct values.
+- **Facet values and collections are returned most frequent first.**
+
+### Fixed
+
+- **Failed Meilisearch tasks were treated as successes.** The SDK resolves `waitForTask` for
+  failed tasks too, so a rejected document batch or settings update went unnoticed and the
+  index was silently incomplete. Every task is now checked and a failure fails the job with
+  Meilisearch's error code.
+- **Changing an asset's focal point never reached the index.** The update filtered on
+  `productAssetId` / `productVariantAssetId`, which weren't filterable, and went through
+  `search` (capped at `maxTotalHits`). The asset ids are now filterable and the update reads
+  documents through the documents API and sends only the changed fields.
+- **A product disappeared from search while it was being updated.** Its documents were
+  deleted and then re-added. New documents are now written first and only documents that no
+  longer exist (a deleted variant, a removed channel or translation) are deleted afterwards.
+- **Grouped facet and collection counts counted variants.** With `groupByProduct`, a facet
+  value on a product with three variants counted three. Counts now follow the Elasticsearch
+  plugin: distinct products (or SKUs with `groupBySKU`) with a matching variant. Exact up to
+  the new `searchConfig.groupedFacetCountLimit` (default 1000) matching variants.
+- **Config changes didn't apply to an existing index**: settings were only written when the
+  index was created, so new synonyms or a new `totalItemsMaxSize` needed a full reindex.
+- **Any error at startup looked like a missing index** (e.g. a wrong API key led to an attempt
+  to create the index). Only `index_not_found` is treated as missing now.
+- **Facet truncation dropped the most common values.** Meilisearch sorts facet values
+  alphabetically by default, so the cut at `maxValuesPerFacet` kept `a…` values. They are now
+  sorted by count.
+- **The hybrid-search fallback matched an error message** that Meilisearch has since
+  changed. It now checks the error codes `invalid_search_embedder` / `invalid_similar_embedder`.
+
+### Improved
+
+- **Settings go out in one request**, compared with the live settings first; nothing is sent
+  when they match. Before, configuring an index took about ten separate settings tasks, each
+  of which can make Meilisearch re-index.
+- **Faster reindex.** Documents of many products are sent together in `reindexBatchSize`
+  batches without waiting for each one (Meilisearch processes queued document tasks
+  together); all batches must succeed before the index swap.
+- **Granular filterable attributes** on Meilisearch v1.14+: ids and flags use equality-only
+  filters, prices comparison filters, none of them facet search. Older engines get the plain
+  list.
+- **Price buckets in one multi-search request** instead of one search per bucket.
+- **Default ranking rules work on every engine version**: when `rankingRules` isn't set the
+  plugin asks Meilisearch for its own default instead of sending a list that older engines
+  reject.
+
+### Added
+
+- `indexSettings`: any other Meilisearch index setting (`searchCutoffMs`, `separatorTokens`,
+  `dictionary`, `localizedAttributes`, `proximityPrecision`…), merged over the plugin's.
+- `typoTolerance.disableOnNumbers` (Meilisearch v1.15+).
+- `searchConfig.groupedFacetCountLimit`.
+- End-to-end tests against a real Meilisearch server (see `e2e/`), alongside the unit tests.
+
 ## 2.0.0
 
 A correctness-focused release. It folds in the full review of the

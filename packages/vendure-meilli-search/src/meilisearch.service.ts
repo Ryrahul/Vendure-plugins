@@ -17,12 +17,19 @@ import {
     SearchService,
     UserInputError,
 } from '@vendure/core';
-import { Index, MeiliSearch } from 'meilisearch';
+import { Index, Meilisearch } from 'meilisearch';
 
 import { buildFilter, buildSort, escapeFilterValue } from './build-search-query';
 
 import { MEILISEARCH_OPTIONS, loggerCtx, VARIANT_INDEX_NAME } from './constants';
-import { getClient, getIndexUid, createIndex, configureIndex } from './indexing/indexing-utils';
+import {
+    applyIndexSettings,
+    createIndex,
+    getClient,
+    getIndexUid,
+    isMissingEmbedder,
+    waitForTasks,
+} from './indexing/indexing-utils';
 import { MeilisearchIndexService } from './indexing/meilisearch-index.service';
 import { MeilisearchRuntimeOptions } from './options';
 import {
@@ -39,7 +46,7 @@ import {
 
 @Injectable()
 export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
-    private client: MeiliSearch;
+    private client: Meilisearch;
 
     constructor(
         @Inject(MEILISEARCH_OPTIONS) private options: MeilisearchRuntimeOptions,
@@ -54,7 +61,7 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
     }
 
     onModuleInit(): any {
-        // The MeiliSearch JS client is stateless — it wraps fetch with config
+        // The Meilisearch JS client is stateless — it wraps fetch with config
         // and does not maintain connection pools or persistent connections.
         // A separate instance in MeilisearchIndexerController is intentional:
         // each service owns its own client for clarity and lifecycle isolation.
@@ -62,7 +69,7 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
     }
 
     onModuleDestroy(): any {
-        // MeiliSearch JS client has no close/cleanup method
+        // Meilisearch JS client has no close/cleanup method
     }
 
     /**
@@ -109,15 +116,39 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
         return health.status === 'available';
     }
 
+    /**
+     * Creates the index if needed and brings its settings in line with the plugin options, so
+     * that a config change (synonyms, ranking rules, embedders…) applies on the next start
+     * without a full reindex.
+     *
+     * A new index is configured before it is used. On an existing index, changed settings are
+     * only enqueued, so startup isn't blocked while Meilisearch re-indexes; Meilisearch runs
+     * tasks in order, so document updates sent afterwards are applied with the new settings.
+     */
     async createIndicesIfNotExists(): Promise<void> {
         const indexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
+        const created = await createIndex(this.client, indexUid, 'id', this.options);
+        if (created) {
+            await applyIndexSettings(this.client, indexUid, this.options, { wait: true });
+            return;
+        }
         try {
-            await this.client.getIndex(indexUid);
-            Logger.verbose(`Index "${indexUid}" exists`, loggerCtx);
+            const taskUids = await applyIndexSettings(this.client, indexUid, this.options, { wait: false });
+            if (taskUids.length) {
+                Logger.info(`Updating the settings of index "${indexUid}" in the background`, loggerCtx);
+                waitForTasks(this.client, taskUids, this.options).catch((e: any) =>
+                    Logger.error(
+                        `Could not update the settings of index "${indexUid}": ${e.message as string}`,
+                        loggerCtx,
+                    ),
+                );
+            }
         } catch (e: any) {
-            Logger.verbose(`Index "${indexUid}" does not exist. Creating...`, loggerCtx);
-            await createIndex(this.client, indexUid, 'id', this.options);
-            await configureIndex(this.client, indexUid, this.options);
+            Logger.error(
+                `Could not update the settings of index "${indexUid}": ${e.message as string}`,
+                loggerCtx,
+                e.stack,
+            );
         }
     }
 
@@ -173,7 +204,7 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
         try {
             return await index.search(term, params);
         } catch (e: any) {
-            if (e.message?.includes('Cannot find embedder') && params.hybrid) {
+            if (params.hybrid && isMissingEmbedder(e)) {
                 Logger.warn(
                     `Embedder "${params.hybrid.embedder as string}" is not available on index ` +
                         `"${index.uid}"; falling back to keyword search. If this persists outside of a ` +
@@ -346,47 +377,28 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
     }
 
     /**
-     * Return a list of all FacetValues which appear in the result set.
+     * Return a list of all FacetValues which appear in the result set, most frequent first.
      */
     async facetValues(
         ctx: RequestContext,
         input: MeilisearchSearchInput,
         enabledOnly: boolean = false,
     ): Promise<Array<{ facetValue: FacetValue; count: number }>> {
-        const indexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-        const index = this.client.index(indexUid);
-        const filter = buildFilter(ctx, input, enabledOnly);
-
         try {
-            const { groupByProduct } = input;
-            // When grouped by product, use productFacetValueIds to get per-product counts
-            const facetField = groupByProduct ? 'productFacetValueIds' : 'facetValueIds';
-            const searchParams: MeilisearchQueryParams = {
-                filter,
-                offset: 0,
-                limit: 0,
-                facets: [facetField],
-            };
-            if (groupByProduct) {
-                searchParams.distinct = 'productId';
-            }
-            const result = await index.search(input.term || '', searchParams);
-
-            const facetDistribution = result.facetDistribution?.[facetField] || {};
-            const facetValueIds = Object.keys(facetDistribution).slice(
-                0,
+            const counts = await this.countValues(
+                ctx,
+                input,
+                enabledOnly,
+                'facetValueIds',
                 this.options.searchConfig.facetValueMaxSize,
             );
-
-            if (facetValueIds.length === 0) {
+            if (!counts.size) {
                 return [];
             }
-
-            const facetValues = await this.facetValueService.findByIds(ctx, facetValueIds);
-            return facetValues.map(facetValue => {
-                const count = facetDistribution[facetValue.id.toString()] || 0;
-                return { facetValue, count };
-            });
+            const facetValues = await this.facetValueService.findByIds(ctx, [...counts.keys()]);
+            return facetValues
+                .map(facetValue => ({ facetValue, count: counts.get(facetValue.id.toString()) ?? 0 }))
+                .sort((a, b) => b.count - a.count);
         } catch (e: any) {
             Logger.error(e.message, loggerCtx, e.stack);
             return [];
@@ -394,51 +406,79 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
     }
 
     /**
-     * Return a list of all Collections which appear in the result set.
+     * Return a list of all Collections which appear in the result set, most frequent first.
      */
     async collections(
         ctx: RequestContext,
         input: MeilisearchSearchInput,
         enabledOnly: boolean = false,
     ): Promise<Array<{ collection: Collection; count: number }>> {
-        const indexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-        const index = this.client.index(indexUid);
-        const filter = buildFilter(ctx, input, enabledOnly);
-
         try {
-            const { groupByProduct } = input;
-            // When grouped by product, use productCollectionIds to get per-product counts
-            const collectionField = groupByProduct ? 'productCollectionIds' : 'collectionIds';
-            const searchParams: MeilisearchQueryParams = {
-                filter,
-                offset: 0,
-                limit: 0,
-                facets: [collectionField],
-            };
-            if (groupByProduct) {
-                searchParams.distinct = 'productId';
-            }
-            const result = await index.search(input.term || '', searchParams);
-
-            const collectionDistribution = result.facetDistribution?.[collectionField] || {};
-            const collectionIds = Object.keys(collectionDistribution).slice(
-                0,
+            const counts = await this.countValues(
+                ctx,
+                input,
+                enabledOnly,
+                'collectionIds',
                 this.options.searchConfig.collectionMaxSize,
             );
-
-            if (collectionIds.length === 0) {
+            if (!counts.size) {
                 return [];
             }
-
-            const collections = await this.collectionService.findByIds(ctx, collectionIds);
-            return collections.map(collection => {
-                const count = collectionDistribution[collection.id.toString()] || 0;
-                return { collection, count };
-            });
+            const collections = await this.collectionService.findByIds(ctx, [...counts.keys()]);
+            return collections
+                .map(collection => ({ collection, count: counts.get(collection.id.toString()) ?? 0 }))
+                .sort((a, b) => b.count - a.count);
         } catch (e: any) {
             Logger.error(e.message, loggerCtx, e.stack);
             return [];
         }
+    }
+
+    /**
+     * Counts the results per value of a list attribute (facet value or collection ids), keeping
+     * the `maxSize` most frequent values. Same semantics as Vendure's Elasticsearch plugin: the
+     * variant-level attribute is counted, and with `groupByProduct` / `groupBySKU` each value
+     * counts the distinct products / SKUs among the matching variants.
+     *
+     * Meilisearch's facet distribution counts documents (variants), even with `distinct`, so for
+     * grouped results the matching variants are fetched (only the two attributes needed) and
+     * counted here, as long as there are at most `searchConfig.groupedFacetCountLimit` of them.
+     * For larger results the per-variant facet distribution from the same request is used.
+     */
+    private async countValues(
+        ctx: RequestContext,
+        input: MeilisearchSearchInput,
+        enabledOnly: boolean,
+        field: string,
+        maxSize: number,
+    ): Promise<Map<string, number>> {
+        const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
+        const filter = buildFilter(ctx, input, enabledOnly);
+        const { groupedFacetCountLimit, totalItemsMaxSize } = this.options.searchConfig;
+        const groupKey = input.groupByProduct ? 'productId' : input.groupBySKU ? 'sku' : undefined;
+        const hitLimit = groupKey ? Math.min(groupedFacetCountLimit, totalItemsMaxSize) : 0;
+
+        const params: MeilisearchQueryParams =
+            groupKey && hitLimit > 0
+                ? { filter, facets: [field], page: 1, hitsPerPage: hitLimit, attributesToRetrieve: [field, groupKey] }
+                : { filter, facets: [field], offset: 0, limit: 0 };
+        const result = await index.search(input.term || '', params);
+
+        let counts: Array<[string, number]>;
+        if (groupKey && hitLimit > 0 && ((result as any).totalHits ?? Infinity) <= hitLimit) {
+            const groupsByValue = new Map<string, Set<string>>();
+            for (const hit of result.hits as any[]) {
+                for (const id of hit[field] ?? []) {
+                    const groups = groupsByValue.get(String(id)) ?? new Set<string>();
+                    groups.add(String(hit[groupKey]));
+                    groupsByValue.set(String(id), groups);
+                }
+            }
+            counts = [...groupsByValue].map(([value, groups]) => [value, groups.size]);
+        } else {
+            counts = Object.entries(result.facetDistribution?.[field] ?? {});
+        }
+        return new Map(counts.sort((a, b) => b[1] - a[1]).slice(0, maxSize));
     }
 
     async priceRange(ctx: RequestContext, input: MeilisearchSearchInput): Promise<SearchPriceData> {
@@ -462,7 +502,7 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
 
             // Generate price buckets by searching with filter ranges
             const buckets = await this.generatePriceBuckets(
-                index,
+                indexUid,
                 input.term || '',
                 filter,
                 'price',
@@ -472,7 +512,7 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
             );
 
             const bucketsWithTax = await this.generatePriceBuckets(
-                index,
+                indexUid,
                 input.term || '',
                 filter,
                 'priceWithTax',
@@ -608,8 +648,12 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
         }
     }
 
+    /**
+     * Counts the results per price range of `interval`. All ranges are counted in one
+     * multi-search request.
+     */
     private async generatePriceBuckets(
-        index: any,
+        indexUid: string,
         term: string,
         baseFilter: string,
         field: string,
@@ -621,7 +665,6 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
             return [];
         }
 
-        // Build all bucket ranges upfront
         const ranges: Array<{ start: number; end: number }> = [];
         let bucketStart = Math.floor(min / interval) * interval;
         while (bucketStart <= max) {
@@ -629,40 +672,21 @@ export class MeilisearchService implements OnModuleInit, OnModuleDestroy {
             bucketStart += interval;
         }
 
-        // Execute in parallel batches with a concurrency cap to avoid
-        // overwhelming Meilisearch with too many simultaneous requests
-        const CONCURRENCY = 10;
-        const buckets: Array<{ to: number; count: number }> = [];
-
-        for (let i = 0; i < ranges.length; i += CONCURRENCY) {
-            const batch = ranges.slice(i, i + CONCURRENCY);
-            const results = await Promise.all(
-                batch.map(async ({ start, end }) => {
-                    const bucketFilter = baseFilter
-                        ? `${baseFilter} AND ${field} >= ${start} AND ${field} < ${end}`
-                        : `${field} >= ${start} AND ${field} < ${end}`;
-                    try {
-                        const result = await index.search(term, {
-                            filter: bucketFilter,
-                            offset: 0,
-                            limit: 0,
-                        });
-                        const count = this.getTotalHitCount(result);
-                        return count > 0 ? { to: end, count } : null;
-                    } catch (e: any) {
-                        Logger.warn(`Error generating price bucket for range ${start}-${end}: ${e.message}`, loggerCtx);
-                        return null;
-                    }
-                }),
-            );
-            for (const r of results) {
-                if (r) {
-                    buckets.push(r);
-                }
-            }
-        }
-
-        return buckets;
+        const { results } = await this.client.multiSearch({
+            queries: ranges.map(({ start, end }) => {
+                const rangeFilter = `${field} >= ${start} AND ${field} < ${end}`;
+                return {
+                    indexUid,
+                    q: term,
+                    filter: baseFilter ? `${baseFilter} AND ${rangeFilter}` : rangeFilter,
+                    offset: 0,
+                    limit: 0,
+                };
+            }),
+        });
+        return ranges
+            .map(({ end }, i) => ({ to: end, count: this.getTotalHitCount(results[i]) }))
+            .filter(bucket => bucket.count > 0);
     }
 
     private mapVariantToSearchResult(hit: any): MeilisearchSearchResult {

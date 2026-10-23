@@ -19,7 +19,8 @@ A Vendure plugin that replaces the default search with [Meilisearch](https://www
 ## Requirements
 
 - Vendure `^3.0.0`
-- A running [Meilisearch](https://www.meilisearch.com/docs/learn/getting_started/cloud_quick_start) instance **v1.6 or later** (required for `matchingStrategy: 'frequency'`, `distinct`, `facetStats`, and `swapIndexes` features used by this plugin)
+- Node.js **20.19+ or 22.12+** (the Meilisearch JS SDK is ESM-only and is loaded with `require(esm)`)
+- A running [Meilisearch](https://www.meilisearch.com/docs/learn/getting_started/cloud_quick_start) instance **v1.6 or later** (required for `matchingStrategy: 'frequency'`, `distinct`, `facetStats`, and `swapIndexes` features used by this plugin). Tested with **v1.13** and **v1.55**. On v1.14+ the plugin uses [granular filterable attributes](https://www.meilisearch.com/docs/reference/api/settings#filterable-attributes), which make indexing cheaper.
 - For AI hybrid search: Meilisearch **v1.13 or later** with the vector store available, plus an embedding provider (OpenAI, HuggingFace, Ollama, a REST embedder, or your own vectors)
 
 ## Installation
@@ -124,6 +125,7 @@ MeilisearchPlugin.init({
     collectionMaxSize: 50,
     totalItemsMaxSize: 10000,
     priceRangeBucketInterval: 1000,       // Price bucket width (in currency subunits)
+    groupedFacetCountLimit: 1000,         // Exact product counts for facets up to this many matching variants
 
     // Hooks
     mapQuery: (query, input, searchConfig, channelId, enabledOnly, ctx) => {
@@ -140,6 +142,7 @@ MeilisearchPlugin.init({
     minWordSizeForTwoTypos: 8,            // Default: 9
     disableOnWords: ['iPhone', 'Samsung'],
     disableOnAttributes: ['sku'],
+    disableOnNumbers: true,               // No typos on numbers (Meilisearch v1.15+)
   },
 
   // ─── Synonyms ──────────────────────────────────────────────
@@ -207,8 +210,26 @@ MeilisearchPlugin.init({
     reviewRating: 'Float',
   },
   extendSearchSortType: ['reviewRating'],
+
+  // ─── Any other Meilisearch index setting (advanced) ────────
+  indexSettings: {
+    searchCutoffMs: 300,
+    separatorTokens: ['/'],
+    proximityPrecision: 'byAttribute',
+  },
 })
 ```
+
+## Index Settings
+
+The plugin owns the settings of its index and keeps them in sync with the config:
+
+- **Applied at every startup**, compared with the live settings first. Nothing is sent when they already match; otherwise **one** settings update with only the changes goes out, in the background (startup isn't blocked while Meilisearch re-indexes). A config change such as new synonyms takes effect after a restart; no full reindex needed.
+- **Removing an option resets it.** Delete `synonyms`, `stopWords`, `rankingRules` or `typoTolerance` from the config and the index goes back to Meilisearch's defaults. Removed embedders are removed from the index.
+- **`indexSettings`** passes any other [Meilisearch setting](https://www.meilisearch.com/docs/reference/api/settings) through (e.g. `searchCutoffMs`, `separatorTokens`, `dictionary`, `localizedAttributes`, `proximityPrecision`). It's merged over the plugin's settings; the lists the plugin relies on (filterable, searchable, sortable attributes) are extended, not replaced.
+- Facet values are sorted **by count** (`faceting.sortFacetValuesBy`), so when a facet has more values than the limit, the most frequent ones are kept rather than the first alphabetically.
+
+Embedders are updated in a separate task, so a provider problem (bad key, unreachable URL) can't hold back the keyword settings.
 
 ## Matching Strategy
 
@@ -313,7 +334,7 @@ Configuration is validated at startup: an unknown `defaultEmbedder`, a `semantic
 
 - Always load it from an environment variable or a secret manager — never commit it.
 - Anyone with admin access to your Meilisearch instance can read it back from the index settings.
-- Rotating the key requires the embedder settings to be re-applied — restart Vendure or run a `reindex`.
+- Meilisearch only returns the key masked, so the startup settings sync can't tell that it changed. After rotating the key, run a `reindex`: it builds a fresh index with the full settings, including the new key.
 - The `rest` source is an open passthrough: `url`, `headers`, and `request` let you point at any HTTP endpoint. Pointing it at an internal service is your call and your security surface.
 
 ### Cost
@@ -416,11 +437,22 @@ Response includes:
 
 This is **separate** from the `priceRange` input filter, which lets users filter results by price.
 
+All buckets are counted in a single [multi-search](https://www.meilisearch.com/docs/reference/api/multi_search) request.
+
+## Facet and Collection Counts
+
+`facetValues` and `collections` in the search response follow the same rules as Vendure's Elasticsearch plugin:
+
+- Not grouped: the number of matching **variants** with that facet value / in that collection.
+- `groupByProduct: true` (or `groupBySKU`): the number of distinct **products** (SKUs) with a matching variant that has the value.
+
+Meilisearch's facet distribution always counts documents (variants), so for grouped searches the plugin counts products itself, as long as at most `searchConfig.groupedFacetCountLimit` (default 1000) variants match. For bigger result sets it falls back to Meilisearch's per-variant counts. Values are returned most frequent first.
+
 ## Result Limits
 
 Meilisearch caps result counts at the index level: `pagination.maxTotalHits` (default 1000) bounds `totalItems`, and `faceting.maxValuesPerFacet` (default 100) bounds facet distributions. Left at their defaults, a catalog larger than those numbers silently reports truncated counts.
 
-The plugin configures both from `searchConfig` when it configures the index, so `totalItemsMaxSize` (default 10000) and `max(facetValueMaxSize, collectionMaxSize)` are the values that actually apply. Raise `totalItemsMaxSize` if your catalog exceeds it — the settings are applied on the next reindex.
+The plugin configures both from `searchConfig`, so `totalItemsMaxSize` (default 10000) and `max(facetValueMaxSize, collectionMaxSize)` are the values that actually apply. Raise `totalItemsMaxSize` if your catalog exceeds it — the new limit is applied at the next startup.
 
 ## Multi-Project Setup
 
@@ -486,6 +518,10 @@ If `bufferUpdates` is enabled, changes are not applied until `runPendingSearchIn
 ### Reindex fails with "timeout ... has exceeded on task N"
 
 A Meilisearch task took longer than `taskTimeout` (default 5 minutes). This is most likely with AI embedders configured, where Meilisearch calls the embedding provider for every document in a batch. Raise `taskTimeout`, lower `reindexBatchSize` so each batch is smaller, or check that the embedding provider is responding.
+
+### A reindex or an update fails with `Meilisearch task N (...) failed: [code] message`
+
+Meilisearch rejected the task. The plugin checks every task it waits for and fails the job instead of reporting success with documents missing. The code and message come from Meilisearch (e.g. `invalid_document_id`, `invalid_settings_filterable_attributes`); see [Meilisearch error codes](https://www.meilisearch.com/docs/reference/errors/error_codes).
 
 ### Hybrid search silently returns keyword results
 
@@ -571,6 +607,15 @@ import {
   AiSearchConfig,
   SimilarDocumentsInput,
 } from '@rahul_vendure/vendure-meilli-search';
+```
+
+## Running the tests
+
+Unit tests run without any services. The end-to-end tests (`e2e/`) start a Vendure test server and need a Meilisearch server:
+
+```bash
+docker run -d -p 7701:7700 -e MEILI_MASTER_KEY=test-master-key getmeili/meilisearch:v1.55
+npm test   # MEILI_HOST / MEILI_MASTER_KEY override the defaults
 ```
 
 ## License

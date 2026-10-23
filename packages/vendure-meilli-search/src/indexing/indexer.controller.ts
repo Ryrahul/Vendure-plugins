@@ -2,10 +2,8 @@ import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ModuleRef } from '@nestjs/core';
 import { unique } from '@vendure/common/lib/unique';
 import {
-    Asset,
     asyncObservable,
     AsyncQueue,
-    Channel,
     Collection,
     ConfigService,
     EntityRelationPaths,
@@ -26,7 +24,7 @@ import {
     Translatable,
     Translation,
 } from '@vendure/core';
-import { Index, IndexSwap, MeiliSearch } from 'meilisearch';
+import { Index, IndexSwap, Meilisearch } from 'meilisearch';
 import { Observable } from 'rxjs';
 import { In, IsNull } from 'typeorm';
 
@@ -44,7 +42,12 @@ import {
     VariantIndexItem,
 } from '../types';
 
-import { getClient, getIndexUid, createIndex, configureIndex, waitForTask } from './indexing-utils';
+import { escapeFilterValue } from '../build-search-query';
+
+import { configureIndex, createIndex, getClient, getIndexUid, waitForTask, waitForTasks } from './indexing-utils';
+
+/** Document batches a reindex may have enqueued in Meilisearch before it waits for the oldest. */
+const MAX_PENDING_BATCHES = 10;
 
 export const defaultProductRelations: Array<EntityRelationPaths<Product>> = [
     'featuredAsset',
@@ -72,7 +75,7 @@ export interface ReindexMessageResponse {
 
 @Injectable()
 export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestroy {
-    private client: MeiliSearch;
+    private client: Meilisearch;
     private asyncQueue = new AsyncQueue('meilisearch-indexer', 5);
     private productRelations: Array<EntityRelationPaths<Product>>;
     private variantRelations: Array<EntityRelationPaths<ProductVariant>>;
@@ -89,7 +92,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     ) {}
 
     onModuleInit(): any {
-        // The MeiliSearch JS client is stateless — it wraps fetch with config
+        // The Meilisearch JS client is stateless — it wraps fetch with config
         // and does not maintain connection pools or persistent connections.
         // A separate instance in MeilisearchService is intentional:
         // each service owns its own client for clarity and lifecycle isolation.
@@ -106,7 +109,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     }
 
     onModuleDestroy(): any {
-        // MeiliSearch JS client has no close method
+        // Meilisearch JS client has no close method
     }
 
     /**
@@ -288,6 +291,11 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     /**
      * Reindex phase 2 — write every non-deleted product into the temporary index,
      * reporting progress as it goes. Returns the total number of products processed.
+     *
+     * Documents of many products are sent together in batches of `reindexBatchSize`, and the
+     * batches are enqueued without waiting for each one: Meilisearch processes consecutive
+     * document tasks together, which is much faster than one task per product. At most
+     * `MAX_PENDING_BATCHES` are in flight; all of them must succeed before the swap.
      */
     private async populateTempIndex(
         ctx: MutableRequestContext,
@@ -295,6 +303,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
         timeStart: number,
         onProgress: (progress: ReindexMessageResponse) => void,
     ): Promise<number> {
+        const index = this.client.index(tempIndexUid);
         const totalProductIds = await this.connection.rawConnection
             .getRepository(Product)
             .createQueryBuilder('product')
@@ -306,6 +315,21 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
         let productIds: Product[] = [];
         let skip = 0;
         let finishedProductsCount = 0;
+        let documents: VariantIndexItem[] = [];
+        const pendingTasks: number[] = [];
+        const flush = async () => {
+            if (!documents.length) {
+                return;
+            }
+            const task = await index.addDocuments(documents as any[]);
+            Logger.debug(`Enqueued ${documents.length} documents for [${index.uid}]`, loggerCtx);
+            documents = [];
+            pendingTasks.push(task.taskUid);
+            while (pendingTasks.length > MAX_PENDING_BATCHES) {
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                await waitForTask(this.client, pendingTasks.shift()!, this.options);
+            }
+        };
         try {
             do {
                 productIds = await this.connection.rawConnection
@@ -313,12 +337,16 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
                     .createQueryBuilder('product')
                     .select('product.id')
                     .where('product.deletedAt IS NULL')
+                    .orderBy('product.id', 'ASC')
                     .skip(skip)
                     .take(this.options.reindexProductsChunkSize)
                     .getMany();
 
                 for (const { id: productId } of productIds) {
-                    await this.updateProductsOperationsOnly(ctx, productId, tempIndexUid);
+                    documents.push(...(await this.buildProductDocuments(ctx, productId)));
+                    if (documents.length >= this.options.reindexBatchSize) {
+                        await flush();
+                    }
                     finishedProductsCount++;
                     onProgress({
                         total: totalProductIds,
@@ -331,6 +359,8 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
 
                 Logger.verbose(`Done ${finishedProductsCount} / ${totalProductIds} products`);
             } while (productIds.length >= this.options.reindexProductsChunkSize);
+            await flush();
+            await waitForTasks(this.client, pendingTasks, this.options);
         } catch (e: any) {
             // The temp index is a scratch copy that nothing reads from, so a failed
             // populate must not leave it behind to accumulate on the Meilisearch
@@ -382,116 +412,104 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
     }
 
     async updateAsset(data: UpdateAssetMessageData): Promise<boolean> {
-        const indexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-        const index = this.client.index(indexUid);
+        const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
+        const assetId = escapeFilterValue(data.asset.id);
+        const focalPoint = data.asset.focalPoint || null;
 
-        const asset = data.asset;
-        const focalPoint = asset.focalPoint || null;
-
-        // Update product assets
-        await this.updateAssetDocuments(
-            index,
-            `productAssetId = "${asset.id}"`,
-            doc => {
-                doc.productPreviewFocalPoint = focalPoint;
-                return doc;
-            },
-        );
-
-        // Update variant assets
-        await this.updateAssetDocuments(
-            index,
-            `productVariantAssetId = "${asset.id}"`,
-            doc => {
-                doc.productVariantPreviewFocalPoint = focalPoint;
-                return doc;
-            },
-        );
-
+        await this.updateDocumentsMatching(index, `productAssetId = "${assetId}"`, {
+            productPreviewFocalPoint: focalPoint,
+        });
+        await this.updateDocumentsMatching(index, `productVariantAssetId = "${assetId}"`, {
+            productVariantPreviewFocalPoint: focalPoint,
+        });
         return true;
     }
 
     async deleteAsset(data: UpdateAssetMessageData): Promise<boolean> {
-        const indexUid = getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-        const index = this.client.index(indexUid);
+        const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
+        const assetId = escapeFilterValue(data.asset.id);
 
-        const asset = data.asset;
-
-        // Clear product asset
-        await this.updateAssetDocuments(
-            index,
-            `productAssetId = "${asset.id}"`,
-            doc => {
-                doc.productAssetId = null;
-                doc.productPreview = '';
-                doc.productPreviewFocalPoint = null;
-                return doc;
-            },
-        );
-
-        // Clear variant asset
-        await this.updateAssetDocuments(
-            index,
-            `productVariantAssetId = "${asset.id}"`,
-            doc => {
-                doc.productVariantAssetId = null;
-                doc.productVariantPreview = '';
-                doc.productVariantPreviewFocalPoint = null;
-                return doc;
-            },
-        );
-
+        await this.updateDocumentsMatching(index, `productAssetId = "${assetId}"`, {
+            productAssetId: null,
+            productPreview: '',
+            productPreviewFocalPoint: null,
+        });
+        await this.updateDocumentsMatching(index, `productVariantAssetId = "${assetId}"`, {
+            productVariantAssetId: null,
+            productVariantPreview: '',
+            productVariantPreviewFocalPoint: null,
+        });
         return true;
     }
 
     /**
-     * Meilisearch doesn't have update_by_query, so we fetch matching documents,
-     * modify them, and re-add them (which upserts).
-     *
-     * Note: `offset += limit` is safe here because the upserted documents still
-     * match the original filter (the asset id is unchanged), so the search result
-     * set remains stable across pages.
+     * Applies a partial update to every document matching the filter. Only the given fields
+     * are sent (`updateDocuments` merges them into the stored documents).
      */
-    private async updateAssetDocuments(
+    private async updateDocumentsMatching(
         index: Index,
         filter: string,
-        updateFn: (doc: any) => any,
+        fields: Record<string, unknown>,
     ): Promise<void> {
-        let offset = 0;
-        const limit = 1000;
-        let hasMore = true;
-
-        while (hasMore) {
-            const result = await index.search('', { filter, offset, limit });
-            if (result.hits.length === 0) {
-                break;
-            }
-
-            const updatedDocs = result.hits.map(hit => updateFn({ ...hit }));
-            const task = await index.addDocuments(updatedDocs);
+        const ids = await this.getDocumentIds(index, filter);
+        for (let i = 0; i < ids.length; i += this.options.reindexBatchSize) {
+            const chunk = ids.slice(i, i + this.options.reindexBatchSize);
+            const task = await index.updateDocuments(chunk.map(id => ({ id, ...fields })));
             await waitForTask(this.client, task.taskUid, this.options);
-
-            hasMore = result.hits.length === limit;
-            offset += limit;
         }
     }
 
+    /**
+     * The ids of all documents matching the filter. Uses the documents endpoint rather than
+     * search, which is capped at `pagination.maxTotalHits`.
+     */
+    private async getDocumentIds(index: Index, filter: string): Promise<string[]> {
+        const ids: string[] = [];
+        const limit = 1000;
+        for (let offset = 0; ; offset += limit) {
+            const { results } = await index.getDocuments<{ id: string }>({ filter, fields: ['id'], offset, limit });
+            ids.push(...results.map(doc => doc.id));
+            if (results.length < limit) {
+                return ids;
+            }
+        }
+    }
+
+    /**
+     * Re-indexes products in the live index. The new documents are written first and documents
+     * that no longer exist (a removed variant, channel or translation) are deleted afterwards,
+     * so a product never disappears from search while it is being updated.
+     */
     private async updateProductsInternal(ctx: MutableRequestContext, productIds: ID[]) {
         Logger.debug(`Updating ${productIds.length} Products`, loggerCtx);
+        const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
         for (const productId of productIds) {
-            await this.deleteProductOperations(ctx, productId);
-            await this.updateProductsOperationsOnly(ctx, productId);
+            const documents = await this.buildProductDocuments(ctx, productId);
+            const existingIds = await this.getDocumentIds(index, this.productFilter(productId));
+
+            for (let i = 0; i < documents.length; i += this.options.reindexBatchSize) {
+                const chunk = documents.slice(i, i + this.options.reindexBatchSize);
+                const task = await index.addDocuments(chunk as any[]);
+                await waitForTask(this.client, task.taskUid, this.options);
+                Logger.debug(`Added ${chunk.length} documents to index [${index.uid}]`, loggerCtx);
+            }
+
+            const currentIds = new Set(documents.map(doc => doc.id));
+            const staleIds = existingIds.filter(id => !currentIds.has(id));
+            if (staleIds.length) {
+                const task = await index.deleteDocuments(staleIds);
+                await waitForTask(this.client, task.taskUid, this.options);
+                Logger.debug(`Deleted ${staleIds.length} stale documents from index [${index.uid}]`, loggerCtx);
+            }
         }
     }
 
-    private async updateProductsOperationsOnly(
-        ctx: MutableRequestContext,
-        productId: ID,
-        indexUid?: string,
-    ): Promise<void> {
-        const targetIndexUid = indexUid || getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-        const index = this.client.index(targetIndexUid);
-
+    /**
+     * Builds the search documents of a product: one per variant, channel and language (or one
+     * synthetic document per channel and language for a product without variants). Returns an
+     * empty list for a deleted or missing product.
+     */
+    private async buildProductDocuments(ctx: MutableRequestContext, productId: ID): Promise<VariantIndexItem[]> {
         let product: Product | undefined;
         try {
             product = await this.connection
@@ -506,7 +524,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
             throw e;
         }
         if (!product) {
-            return;
+            return [];
         }
 
         let updatedProductVariants: ProductVariant[] = [];
@@ -540,7 +558,7 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
 
         const uniqueLanguageVariants = unique(languageVariants);
         const originalChannel = ctx.channel;
-        let documents: VariantIndexItem[] = [];
+        const documents: VariantIndexItem[] = [];
 
         for (const channel of product.channels) {
             ctx.setChannel(channel);
@@ -554,128 +572,33 @@ export class MeilisearchIndexerController implements OnModuleInit, OnModuleDestr
             for (const languageCode of uniqueLanguageVariants) {
                 if (variantsInChannel.length) {
                     for (const variant of variantsInChannel) {
-                        const doc = await this.createVariantIndexItem(
-                            variant,
-                            variantsInChannel,
-                            ctx,
-                            languageCode,
+                        documents.push(
+                            await this.createVariantIndexItem(variant, variantsInChannel, ctx, languageCode),
                         );
-                        documents.push(doc);
-
-                        if (documents.length >= this.options.reindexBatchSize) {
-                            await this.addDocumentsBatch(index, documents);
-                            documents = [];
-                        }
                     }
                 } else {
-                    const doc = await this.createSyntheticProductIndexItem(product, ctx, languageCode);
-                    documents.push(doc);
-                }
-
-                if (documents.length >= this.options.reindexBatchSize) {
-                    await this.addDocumentsBatch(index, documents);
-                    documents = [];
+                    documents.push(await this.createSyntheticProductIndexItem(product, ctx, languageCode));
                 }
             }
         }
         ctx.setChannel(originalChannel);
-
-        // Flush remaining documents
-        if (documents.length > 0) {
-            await this.addDocumentsBatch(index, documents);
-        }
+        return documents;
     }
 
-    private async addDocumentsBatch(index: Index, documents: VariantIndexItem[]): Promise<void> {
-        if (documents.length === 0) {
-            return;
-        }
+    private async deleteProductOperations(_ctx: RequestContext, productId: ID): Promise<void> {
+        const index = this.client.index(getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME));
+        Logger.debug(`Deleting 1 Product (id: ${productId})`, loggerCtx);
         try {
-            const task = await index.addDocuments(documents as any[]);
+            const task = await index.deleteDocuments({ filter: this.productFilter(productId) });
             await waitForTask(this.client, task.taskUid, this.options);
-            Logger.debug(`Added ${documents.length} documents to index [${index.uid}]`, loggerCtx);
         } catch (e: any) {
-            Logger.error(`Error adding documents: ${e.message}`, loggerCtx, e.stack);
+            Logger.error(`Error deleting documents: ${e.message as string}`, loggerCtx, e.stack);
             throw e;
         }
     }
 
-    private async deleteProductOperations(
-        ctx: RequestContext,
-        productId: ID,
-        indexUid?: string,
-    ): Promise<void> {
-        const targetIndexUid = indexUid || getIndexUid(this.options.indexPrefix, VARIANT_INDEX_NAME);
-        const index = this.client.index(targetIndexUid);
-
-        const channels = await this.requestContextCache.get(ctx, 'meilisearch-index-all-channels', () =>
-            this.connection.rawConnection
-                .getRepository(Channel)
-                .createQueryBuilder('channel')
-                .select('channel.id')
-                .getMany(),
-        );
-
-        const product = await this.connection
-            .getRepository(ctx, Product)
-            .createQueryBuilder('product')
-            .select([
-                'product.id',
-                'productVariant.id',
-                'productTranslations.languageCode',
-                'productVariantTranslations.languageCode',
-            ])
-            .leftJoin('product.translations', 'productTranslations')
-            .leftJoin('product.variants', 'productVariant')
-            .leftJoin('productVariant.translations', 'productVariantTranslations')
-            .where('product.id = :productId', { productId })
-            .getOne();
-
-        if (!product) return;
-
-        Logger.debug(`Deleting 1 Product (id: ${productId})`, loggerCtx);
-        const languageVariants: LanguageCode[] = [];
-        languageVariants.push(...product.translations.map(t => t.languageCode));
-        for (const variant of product.variants) {
-            languageVariants.push(...variant.translations.map(t => t.languageCode));
-        }
-
-        const uniqueLanguageVariants = unique(languageVariants);
-        const idsToDelete: string[] = [];
-
-        for (const { id: channelId } of channels) {
-            for (const languageCode of uniqueLanguageVariants) {
-                // Delete the synthetic product document
-                idsToDelete.push(MeilisearchIndexerController.getId(-product.id, channelId, languageCode));
-            }
-        }
-
-        // Delete all variant documents
-        for (const variant of product.variants) {
-            for (const channelId of channels.map(c => c.id)) {
-                for (const languageCode of uniqueLanguageVariants) {
-                    idsToDelete.push(
-                        MeilisearchIndexerController.getId(variant.id, channelId, languageCode),
-                    );
-                }
-            }
-        }
-
-        if (idsToDelete.length > 0) {
-            // Delete in chunks
-            const chunkSize = this.options.reindexBatchSize;
-            for (let i = 0; i < idsToDelete.length; i += chunkSize) {
-                const chunk = idsToDelete.slice(i, i + chunkSize);
-                try {
-                    const task = await index.deleteDocuments(chunk);
-                    await waitForTask(this.client, task.taskUid, this.options);
-                    Logger.debug(`Deleted ${chunk.length} documents from index [${index.uid}]`, loggerCtx);
-                } catch (e: any) {
-                    Logger.error(`Error deleting documents: ${e.message}`, loggerCtx, e.stack);
-                    throw e;
-                }
-            }
-        }
+    private productFilter(productId: ID): string {
+        return `productId = "${escapeFilterValue(productId)}"`;
     }
 
     /**

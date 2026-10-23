@@ -1,0 +1,7 @@
+name,slug,description,assets,facets,optionGroups,optionValues,sku,price,taxCategory,stockOnHand,trackInventory,variantAssets,variantFacets
+Laptop,laptop,A fast laptop for work and travel,laptop.png,category:electronics,screen size,13 inch,L13,1299.00,standard,100,false,,
+,,,,,,15 inch,L15,1399.00,standard,100,false,,
+Camera,camera,A mirrorless camera for photography,camera.png,category:electronics,,,C001,199.00,standard,100,false,,
+Phone,phone,A smart phone,,category:electronics,,,P001,499.00,standard,0,true,,
+Tablet,tablet,A tablet for drawing,,category:electronics,,,T001,299.00,standard,100,false,,
+Headphones,headphones,Wireless headphones for music,,category:audio,,,H001,99.00,standard,100,false,,

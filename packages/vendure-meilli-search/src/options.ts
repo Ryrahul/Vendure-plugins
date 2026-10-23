@@ -1,3 +1,4 @@
+import type { Settings } from 'meilisearch';
 import {
     DeepRequired,
     EntityRelationPaths,
@@ -165,6 +166,12 @@ export interface TypoToleranceConfig {
      * ```
      */
     disableOnAttributes?: string[];
+    /**
+     * @description
+     * Disable typo tolerance on numbers, so `2024` doesn't match `2025` and model numbers
+     * or SKUs with digits match exactly. Requires Meilisearch v1.15+.
+     */
+    disableOnNumbers?: boolean;
 }
 
 /**
@@ -427,6 +434,23 @@ export interface MeilisearchOptions {
      * @default undefined (Meilisearch defaults: typo tolerance enabled)
      */
     typoTolerance?: TypoToleranceConfig;
+    /**
+     * @description
+     * Extra Meilisearch index settings, applied on top of the ones the plugin manages. Use it
+     * for engine features the plugin doesn't wrap, e.g. `searchCutoffMs`, `separatorTokens`,
+     * `nonSeparatorTokens`, `dictionary`, `proximityPrecision`, `localizedAttributes` or
+     * `facetSearch`. Arrays the plugin needs (`filterableAttributes`, `sortableAttributes`,
+     * `searchableAttributes`) are merged with yours rather than replaced.
+     *
+     * Changing settings such as searchable/filterable attributes, synonyms, stop words or
+     * typo tolerance makes Meilisearch rebuild the index in the background.
+     *
+     * @example
+     * ```ts
+     * indexSettings: { searchCutoffMs: 300, separatorTokens: ['/'], proximityPrecision: 'byAttribute' }
+     * ```
+     */
+    indexSettings?: Settings;
 }
 
 /**
@@ -533,6 +557,17 @@ export interface SearchConfig {
      * @default 1000
      */
     priceRangeBucketInterval?: number;
+    /**
+     * @description
+     * With `groupByProduct` (or `groupBySKU`), facet value and collection counts are product (SKU)
+     * counts, as in Vendure's Elasticsearch plugin. Meilisearch counts documents (variants) in its facet
+     * distribution, so the plugin counts the products itself when at most this many variants match.
+     * Above it, the counts fall back to Meilisearch's per-variant counts. Set to `0` to always use
+     * Meilisearch's counts.
+     *
+     * @default 1000
+     */
+    groupedFacetCountLimit?: number;
 
     // ───────────────────────────── Matching & Relevancy ─────────────────────────────
 
@@ -766,6 +801,7 @@ export interface SearchConfigDefaults {
     collectionMaxSize: number;
     totalItemsMaxSize: number;
     priceRangeBucketInterval: number;
+    groupedFacetCountLimit: number;
     mapQuery: (
         query: MeilisearchQueryParams,
         input: MeilisearchSearchInput,
@@ -778,7 +814,7 @@ export interface SearchConfigDefaults {
 }
 
 export type MeilisearchRuntimeOptions = DeepRequired<
-    Omit<MeilisearchOptions, 'ai' | 'synonyms' | 'stopWords' | 'rankingRules' | 'typoTolerance' | 'searchConfig'>
+    Omit<MeilisearchOptions, 'ai' | 'synonyms' | 'stopWords' | 'rankingRules' | 'typoTolerance' | 'searchConfig' | 'indexSettings'>
 > & {
     searchConfig: SearchConfigDefaults & Omit<SearchConfig, keyof SearchConfigDefaults>;
     ai?: AiSearchConfig;
@@ -786,6 +822,7 @@ export type MeilisearchRuntimeOptions = DeepRequired<
     stopWords?: string[];
     rankingRules?: string[];
     typoTolerance?: TypoToleranceConfig;
+    indexSettings?: Settings;
 };
 
 export const defaultOptions: MeilisearchRuntimeOptions = {
@@ -802,6 +839,7 @@ export const defaultOptions: MeilisearchRuntimeOptions = {
         collectionMaxSize: 50,
         totalItemsMaxSize: 10000,
         priceRangeBucketInterval: 1000,
+        groupedFacetCountLimit: 1000,
         mapQuery: query => query,
         mapSort: sort => sort,
     },
@@ -815,7 +853,7 @@ export const defaultOptions: MeilisearchRuntimeOptions = {
 };
 
 export function mergeWithDefaults(userOptions: MeilisearchOptions): MeilisearchRuntimeOptions {
-    const { ai, synonyms, stopWords, rankingRules, typoTolerance, searchConfig, ...rest } = userOptions;
+    const { ai, synonyms, stopWords, rankingRules, typoTolerance, searchConfig, indexSettings, ...rest } = userOptions;
     const merged = deepmerge(defaultOptions, rest) as MeilisearchRuntimeOptions;
 
     // Validate indexPrefix — Meilisearch only allows alphanumeric, hyphens, and underscores
@@ -845,6 +883,7 @@ export function mergeWithDefaults(userOptions: MeilisearchOptions): MeilisearchR
     if (stopWords) merged.stopWords = stopWords;
     if (rankingRules) merged.rankingRules = rankingRules;
     if (typoTolerance) merged.typoTolerance = typoTolerance;
+    if (indexSettings) merged.indexSettings = indexSettings;
     return merged;
 }
 
