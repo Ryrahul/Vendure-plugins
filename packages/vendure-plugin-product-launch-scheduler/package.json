@@ -1,0 +1,58 @@
+{
+  "name": "@rahul_vendure/vendure-plugin-product-launch-scheduler",
+  "version": "1.0.0",
+  "description": "Schedule products to be enabled or disabled at a future time in Vendure, with time zones, conflict checks, retries and a dashboard UI",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./dashboard": {
+      "types": "./src/dashboard/index.tsx",
+      "import": "./src/dashboard/index.tsx",
+      "default": "./src/dashboard/index.tsx"
+    }
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*",
+    "src/dashboard/**/*",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "generate": "graphql-codegen --config codegen.yml",
+    "build": "rm -rf dist tsconfig.build.tsbuildinfo && npm run generate && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run src",
+    "test:e2e": "vitest run e2e",
+    "test:e2e:postgres": "TEST_DB=postgres vitest run e2e",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "peerDependencies": {
+    "@vendure/core": "^3.6.0"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^6.1.1",
+    "@graphql-codegen/typescript": "^5.0.8",
+    "@swc/core": "^1.13.5",
+    "unplugin-swc": "^1.5.7",
+    "vitest": "^3.2.4"
+  },
+  "keywords": [
+    "vendure",
+    "vendure-plugin",
+    "scheduler",
+    "product-launch",
+    "scheduled-publishing"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

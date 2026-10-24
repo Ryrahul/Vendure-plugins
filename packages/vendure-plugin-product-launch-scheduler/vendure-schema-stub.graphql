@@ -1,0 +1,25 @@
+# Stub definitions for Vendure core types used in the API extensions, so that
+# graphql-codegen can parse the plugin schema without a running server.
+
+scalar DateTime
+
+interface Node {
+  id: ID!
+}
+
+interface PaginatedList {
+  items: [Node!]!
+  totalItems: Int!
+}
+
+type Product implements Node {
+  id: ID!
+}
+
+enum SortOrder {
+  ASC
+  DESC
+}
+
+type Query
+type Mutation
