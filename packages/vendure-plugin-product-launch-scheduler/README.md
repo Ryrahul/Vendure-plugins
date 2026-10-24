@@ -191,9 +191,18 @@ eventBus.ofType(ProductLaunchScheduleEvent).subscribe(event => {
 
 `ProductLaunchScheduleService` (create, update, cancel, retry, list) and `ProductLaunchExecutorService` (`processDue(now?)`) are exported for use in your own code, e.g. to create schedules from an import job.
 
+## With per-channel availability
+
+Works together with [`@rahul_vendure/vendure-plugin-channel-product-availability`](https://www.npmjs.com/package/@rahul_vendure/vendure-plugin-channel-product-availability), which lets a channel override the global Enabled setting. A schedule changes the global setting, so:
+
+- Channels **without** an override follow the schedule, in the catalog, search and checkout.
+- Channels **with** an override keep it. A channel set to "always on" keeps selling the product while a schedule has disabled it globally, and "always off" keeps it hidden after a scheduled enable.
+
+Nothing needs to be configured. The combination is covered by an end-to-end test (`e2e/with-channel-availability.e2e-spec.ts`).
+
 ## Not included
 
-- **Per-channel scheduling.** Vendure has one `enabled` flag per product. Scheduling per channel would need per-channel availability enforced in the catalog, search, cart and checkout; see [`@rahul_vendure/vendure-plugin-channel-product-availability`](https://www.npmjs.com/package/@rahul_vendure/vendure-plugin-channel-product-availability).
+- **Per-channel scheduling.** Vendure has one `enabled` flag per product. Scheduling per channel would need per-channel availability enforced in the catalog, search, cart and checkout. Per-channel overrides are possible with the channel availability plugin (see above), but the schedules themselves are global.
 - Variant-level schedules.
 
 ## Development

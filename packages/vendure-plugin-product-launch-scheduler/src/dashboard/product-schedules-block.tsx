@@ -122,10 +122,10 @@ export function ProductSchedulesBlock({
                             'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium',
                             globalEnabled ? 'border-success/30 text-success' : 'text-muted-foreground',
                         )}
-                        title="The product's global Enabled setting, which schedules change"
+                        title="The product's global Enabled setting, which schedules change. Channel overrides (if any) take precedence."
                     >
                         <Globe className="h-3 w-3" />
-                        Now {globalEnabled ? 'enabled' : 'disabled'}
+                        Global {globalEnabled ? 'on' : 'off'}
                     </span>
                 )}
             </div>

@@ -11,4 +11,5 @@ First release.
 - Admin API with permission checks and active-channel scoping; `ProductLaunchScheduleEvent`.
 - Dashboard: Launch schedule panel on the product page and a Catalog → Launch schedules page.
 - Shipped migration `ProductLaunchSchedulerMigration1792800000000`.
+- Works with `@rahul_vendure/vendure-plugin-channel-product-availability`: channel overrides take precedence over scheduled changes (e2e-tested).
 - Tested on Vendure 3.6.1 and 3.8.0, SQLite and PostgreSQL.

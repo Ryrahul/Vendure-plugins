@@ -11,7 +11,9 @@ PKG_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 WORK_DIR="${COMPAT_DIR:-$(mktemp -d)}/vendure-$VERSION"
 mkdir -p "$WORK_DIR"
 
+# with-channel-availability needs the sibling workspace package, so it only runs in the monorepo.
 rsync -a --delete --exclude node_modules --exclude dist --exclude 'e2e/__data__' \
+  --exclude 'with-channel-availability.e2e-spec.ts' \
   "$PKG_DIR/src" "$PKG_DIR/e2e" "$PKG_DIR/vitest.config.mts" "$WORK_DIR/"
 cp "$PKG_DIR/../../tsconfig.base.json" "$WORK_DIR/tsconfig.base.json"
 sed 's#../../tsconfig.base.json#./tsconfig.base.json#' "$PKG_DIR/tsconfig.json" > "$WORK_DIR/tsconfig.json"
