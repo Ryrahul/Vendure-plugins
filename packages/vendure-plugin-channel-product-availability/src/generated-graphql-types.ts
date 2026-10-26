@@ -16,6 +16,29 @@ export type Scalars = {
   LanguageCode: { input: import('@vendure/common/lib/generated-types').LanguageCode; output: import('@vendure/common/lib/generated-types').LanguageCode; }
 };
 
+export type BulkAvailabilitySkip = {
+  __typename?: 'BulkAvailabilitySkip';
+  channelId: Scalars['ID']['output'];
+  productId: Scalars['ID']['output'];
+  reason: Scalars['String']['output'];
+};
+
+export type BulkProductChannelAvailabilityResult = {
+  __typename?: 'BulkProductChannelAvailabilityResult';
+  /** Pairs that could not be applied (e.g. the product is not assigned to the channel); the rest still apply. */
+  skipped: Array<BulkAvailabilitySkip>;
+  /** Pairs that already had the requested state. */
+  unchanged: Scalars['Int']['output'];
+  /** Overrides created, changed or removed. */
+  updated: Scalars['Int']['output'];
+};
+
+/** Clears the override for every (product, channel) pair. At most 1,000 pairs per call. */
+export type ClearProductChannelAvailabilitiesInput = {
+  channelIds: Array<Scalars['ID']['input']>;
+  productIds: Array<Scalars['ID']['input']>;
+};
+
 export type ClearProductChannelAvailabilityInput = {
   /** Defaults to the active channel. */
   channelId?: InputMaybe<Scalars['ID']['input']>;
@@ -35,15 +58,29 @@ export enum DeletionResult {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  /** Clears overrides for many products in many channels, in one transaction. Requires permission in every channel. */
+  clearProductChannelAvailabilities: BulkProductChannelAvailabilityResult;
   /** Removes the override so the product inherits Product.enabled again. */
   clearProductChannelAvailability: ProductChannelAvailability;
+  /** Sets overrides for many products in many channels, in one transaction. Requires permission in every channel. */
+  setProductChannelAvailabilities: BulkProductChannelAvailabilityResult;
   /** Sets an explicit override. Does not change Product.enabled or channel assignment. */
   setProductChannelAvailability: ProductChannelAvailability;
 };
 
 
+export type MutationClearProductChannelAvailabilitiesArgs = {
+  input: ClearProductChannelAvailabilitiesInput;
+};
+
+
 export type MutationClearProductChannelAvailabilityArgs = {
   input: ClearProductChannelAvailabilityInput;
+};
+
+
+export type MutationSetProductChannelAvailabilitiesArgs = {
+  input: SetProductChannelAvailabilitiesInput;
 };
 
 
@@ -82,7 +119,11 @@ export type ProductChannelAvailabilityOverride = {
   createdAt: Scalars['DateTime']['output'];
   enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  /** The global Product.enabled value. */
+  productEnabled?: Maybe<Scalars['Boolean']['output']>;
   productId: Scalars['ID']['output'];
+  /** The product's name in the request language. */
+  productName?: Maybe<Scalars['String']['output']>;
   updatedAt: Scalars['DateTime']['output'];
 };
 
@@ -97,6 +138,8 @@ export type ProductChannelAvailabilityOverrideListOptions = {
   channelId?: InputMaybe<Scalars['ID']['input']>;
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   productId?: InputMaybe<Scalars['ID']['input']>;
+  /** Products whose name contains this text (case-insensitive). */
+  productName?: InputMaybe<Scalars['String']['input']>;
   skip?: InputMaybe<Scalars['Int']['input']>;
   take?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -135,6 +178,13 @@ export type QueryProductChannelAvailabilityArgs = {
 
 export type QueryProductChannelAvailabilityOverridesArgs = {
   options?: InputMaybe<ProductChannelAvailabilityOverrideListOptions>;
+};
+
+/** Sets the override for every (product, channel) pair. At most 1,000 pairs per call. */
+export type SetProductChannelAvailabilitiesInput = {
+  channelIds: Array<Scalars['ID']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  productIds: Array<Scalars['ID']['input']>;
 };
 
 export type SetProductChannelAvailabilityInput = {

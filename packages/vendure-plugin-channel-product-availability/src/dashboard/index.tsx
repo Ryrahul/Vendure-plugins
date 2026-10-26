@@ -1,8 +1,16 @@
 import { defineDashboardExtension } from '@vendure/dashboard';
 
 import { ChannelAvailabilityBlock } from './channel-availability-block';
+import { ChannelAvailabilityBulkAction, channelAvailabilityRoute } from './channel-availability-page';
 
 defineDashboardExtension({
+    routes: [channelAvailabilityRoute],
+    dataTables: [
+        {
+            pageId: 'product-list',
+            bulkActions: [{ component: ChannelAvailabilityBulkAction }],
+        },
+    ],
     pageBlocks: [
         {
             id: 'channel-product-availability',

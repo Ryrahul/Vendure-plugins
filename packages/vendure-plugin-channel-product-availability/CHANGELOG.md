@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.2.0
+
+Additive: nothing existing changes. Based on the handoff from the first production consumer.
+
+### Added
+
+- **Elasticsearch support** for `@vendure-community/elasticsearch-plugin` 1.1.0 and 2.0.0, as a separate entry point (`…/elasticsearch`, optional peer dependency):
+  - `withChannelAvailability(options)` adds a per-channel availability field to the variant index and swaps the Shop API `enabled` filter for it, wrapped around any existing `mapQuery`. It keeps a rollout fallback for documents indexed before the field existed.
+  - `ChannelAvailabilityElasticsearchPlugin` reindexes products when overrides are set or cleared, debounced per product.
+  - The pieces are exported for manual wiring: `channelEnabledVariantMapping`, `channelEnabledIndexMapping`, `applyChannelAvailabilityFilter`, `CHANNEL_ENABLED_FIELD`.
+  - Handles a quirk of the Elasticsearch indexer, which marks every variant of a globally disabled product as disabled before custom mappings run. Products that are globally off but switched on in a channel are indexed as available there.
+- **Helpers for custom queries** on `ChannelProductAvailabilityService`:
+  - `filterAvailableVariantIds` and `filterAvailableProductIds` (keep the input order);
+  - `applyToQueryBuilder` and `applyToVariantQueryBuilder` (a subquery, so no id lists or `IN ()`, safe to call twice);
+  - `getAvailableProductIdsSubQuery` (raw SQL);
+  - `getEffectiveEnabledVariantFilter` and `getEffectivelyDisabledProductIds`.
+  - `enforceGuardFilter` is exported.
+- **Bulk operations:**
+  - `setProductChannelAvailabilities` / `clearProductChannelAvailabilities` mutations, and `setOverrides` / `clearOverrides` on the service;
+  - partial success with skip reasons, batched writes in one transaction, a permission check per channel, at most 1,000 pairs per call, one event per changed pair.
+- **Overrides list:** `productChannelAvailabilityOverrides` accepts `productName` and returns `productName` and `productEnabled`.
+- **Dashboard:**
+  - an **Availability in channels…** bulk action in the product list;
+  - a **Catalog → Channel availability** page (bulk change with a result summary; per-channel overrides with search, filter, paging and inline clear).
+
+### Changed
+
+- Adding a product switched off in the channel now returns its reason in the error's `message` ("This product is not available in the current channel", translatable under `errorResult.PRODUCT_DISABLED_IN_CHANNEL`) instead of core's generic text. `interceptorError` is unchanged.
+
+### Verified
+
+- Dashboard rendered and click-tested on Vendure 3.8 (light and dark), including a consumer `vite build` from the packed package with no extra dependencies.
+- Test suite (104 tests) passes on Vendure 3.6.1 and 3.8.0, SQLite and Postgres, and against a real Elasticsearch 9 with both Elasticsearch plugin versions.
+
 ## 1.1.0
 
 ### Changed

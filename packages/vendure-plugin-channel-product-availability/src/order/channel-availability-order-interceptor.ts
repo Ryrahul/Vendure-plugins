@@ -15,6 +15,12 @@ import { ChannelProductAvailabilityService } from '../services/channel-product-a
 export const PRODUCT_DISABLED_IN_CHANNEL_MESSAGE = 'This product is not available in the current channel';
 
 /**
+ * i18n key (under `errorResult.`) of the refusal message. The plugin registers the English text;
+ * add your own translations with `I18nService.addTranslation(lang, { errorResult: { PRODUCT_DISABLED_IN_CHANNEL: '…' } })`.
+ */
+export const PRODUCT_DISABLED_IN_CHANNEL_ERROR_KEY = 'PRODUCT_DISABLED_IN_CHANNEL';
+
+/**
  * Rejects adding, or increasing the quantity of, a product that is **explicitly
  * disabled** in the active channel.
  *

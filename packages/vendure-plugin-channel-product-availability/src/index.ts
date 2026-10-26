@@ -14,6 +14,10 @@ export {
     OverrideState,
     resolveEffectiveEnabled,
     buildEffectiveEnabledProductFilter,
+    enforceGuardFilter,
 } from './services/availability-rules';
 export { ChannelProductAvailabilityMigration1792195200000 } from './migrations/channel-product-availability.migration';
-export { PRODUCT_DISABLED_IN_CHANNEL_MESSAGE } from './order/channel-availability-order-interceptor';
+export {
+    PRODUCT_DISABLED_IN_CHANNEL_MESSAGE,
+    PRODUCT_DISABLED_IN_CHANNEL_ERROR_KEY,
+} from './order/channel-availability-order-interceptor';

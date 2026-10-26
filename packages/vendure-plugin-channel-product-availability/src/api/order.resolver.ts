@@ -12,7 +12,28 @@ import {
     Transaction,
 } from '@vendure/core';
 
+import {
+    PRODUCT_DISABLED_IN_CHANNEL_ERROR_KEY,
+    PRODUCT_DISABLED_IN_CHANNEL_MESSAGE,
+} from '../order/channel-availability-order-interceptor';
 import { OverridePurchaseService } from '../order/override-purchase.service';
+
+/**
+ * Core's OrderInterceptorError has a generic `message` ("An error occurred when attempting to
+ * modify the Order"); the reason is only in `interceptorError`. For this plugin's refusal, the
+ * reason becomes the message, which is what storefronts usually show.
+ *
+ * Vendure translates a mutation's top-level error result through i18n
+ * (`errorResult.<message>`), so it gets the registered key; error results nested in a list
+ * (`addItemsToOrder.errorResults`) are not translated and get the text itself.
+ */
+function withReadableRefusal<T>(result: T, translated = true): T {
+    const error = result as any;
+    if (error?.errorCode === 'ORDER_INTERCEPTOR_ERROR' && error.interceptorError === PRODUCT_DISABLED_IN_CHANNEL_MESSAGE) {
+        error.message = translated ? PRODUCT_DISABLED_IN_CHANNEL_ERROR_KEY : PRODUCT_DISABLED_IN_CHANNEL_MESSAGE;
+    }
+    return result;
+}
 
 /**
  * Overrides the Shop API add-to-cart mutations. Same decorators and semantics as
@@ -35,11 +56,13 @@ export class ShopOrderAvailabilityResolver {
         @Relations({ entity: Order, omit: ['aggregateOrder', 'sellerOrders'] }) relations: RelationPaths<Order>,
     ) {
         const order = await this.activeOrderService.getActiveOrder(ctx, args[ACTIVE_ORDER_INPUT_FIELD_NAME], true);
-        return this.purchaseService.addItemToOrder(
-            ctx,
-            order.id,
-            { productVariantId: args.productVariantId, quantity: args.quantity, customFields: args.customFields },
-            relations,
+        return withReadableRefusal(
+            await this.purchaseService.addItemToOrder(
+                ctx,
+                order.id,
+                { productVariantId: args.productVariantId, quantity: args.quantity, customFields: args.customFields },
+                relations,
+            ),
         );
     }
 
@@ -49,7 +72,7 @@ export class ShopOrderAvailabilityResolver {
     async addItemsToOrder(@Ctx() ctx: RequestContext, @Args() args: any) {
         const order = await this.activeOrderService.getActiveOrder(ctx, args[ACTIVE_ORDER_INPUT_FIELD_NAME], true);
         const result = await this.purchaseService.addItemsToOrder(ctx, order.id, args.inputs);
-        return { order: result.order, errorResults: result.errorResults };
+        return { order: result.order, errorResults: result.errorResults.map(r => withReadableRefusal(r, false)) };
     }
 }
 
@@ -65,10 +88,12 @@ export class AdminDraftOrderAvailabilityResolver {
     @Allow(Permission.CreateOrder)
     async addItemToDraftOrder(@Ctx() ctx: RequestContext, @Args() args: any) {
         const { orderId, input } = args;
-        return this.purchaseService.addItemToOrder(ctx, orderId, {
-            productVariantId: input.productVariantId,
-            quantity: input.quantity,
-            customFields: input.customFields,
-        });
+        return withReadableRefusal(
+            await this.purchaseService.addItemToOrder(ctx, orderId, {
+                productVariantId: input.productVariantId,
+                quantity: input.quantity,
+                customFields: input.customFields,
+            }),
+        );
     }
 }

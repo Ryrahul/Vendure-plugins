@@ -46,3 +46,60 @@ export const clearProductChannelAvailabilityMutation = graphql(
     `,
     [availabilityFragment],
 );
+
+export const productChannelAvailabilityOverridesQuery = graphql(`
+    query ProductChannelAvailabilityOverrides($options: ProductChannelAvailabilityOverrideListOptions) {
+        productChannelAvailabilityOverrides(options: $options) {
+            totalItems
+            items {
+                id
+                productId
+                channelId
+                enabled
+                productName
+                productEnabled
+                updatedAt
+            }
+        }
+    }
+`);
+
+export const setProductChannelAvailabilitiesMutation = graphql(`
+    mutation SetProductChannelAvailabilities($input: SetProductChannelAvailabilitiesInput!) {
+        setProductChannelAvailabilities(input: $input) {
+            updated
+            unchanged
+            skipped {
+                productId
+                channelId
+                reason
+            }
+        }
+    }
+`);
+
+export const clearProductChannelAvailabilitiesMutation = graphql(`
+    mutation ClearProductChannelAvailabilities($input: ClearProductChannelAvailabilitiesInput!) {
+        clearProductChannelAvailabilities(input: $input) {
+            updated
+            unchanged
+            skipped {
+                productId
+                channelId
+                reason
+            }
+        }
+    }
+`);
+
+export const productsByIdsQuery = graphql(`
+    query ChannelAvailabilityProductsByIds($ids: [String!]!) {
+        products(options: { filter: { id: { in: $ids } }, take: 1000 }) {
+            items {
+                id
+                name
+                enabled
+            }
+        }
+    }
+`);

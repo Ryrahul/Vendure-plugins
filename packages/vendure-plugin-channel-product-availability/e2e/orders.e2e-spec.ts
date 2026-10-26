@@ -135,6 +135,8 @@ describe('orders and checkout enforcement', () => {
         });
         expect(addItemToOrder.errorCode).toBe('ORDER_INTERCEPTOR_ERROR');
         expect(addItemToOrder.interceptorError).toMatch(/not available in the current channel/);
+        // the reason is also the message (core's generic message is replaced)
+        expect(addItemToOrder.message).toBe('This product is not available in the current channel');
         await adminClient.query(SET_AVAILABILITY, { input: { productId: ids.tablet, channelId: channelA, enabled: true } });
     });
 
@@ -152,6 +154,7 @@ describe('orders and checkout enforcement', () => {
         expect(variantIds).toEqual([ids.cameraVariant, ids.headphonesVariant].sort());
         expect(addItemsToOrder.errorResults).toHaveLength(1);
         expect(addItemsToOrder.errorResults[0].errorCode).toBe('ORDER_INTERCEPTOR_ERROR');
+        expect(addItemsToOrder.errorResults[0].message).toBe('This product is not available in the current channel');
         await setOverride(ids.tablet, true);
     });
 

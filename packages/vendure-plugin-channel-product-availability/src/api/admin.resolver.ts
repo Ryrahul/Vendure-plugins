@@ -2,7 +2,9 @@ import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { Allow, Ctx, Product, RequestContext, Transaction, TransactionalConnection } from '@vendure/core';
 
 import {
+    MutationClearProductChannelAvailabilitiesArgs,
     MutationClearProductChannelAvailabilityArgs,
+    MutationSetProductChannelAvailabilitiesArgs,
     MutationSetProductChannelAvailabilityArgs,
     QueryProductChannelAvailabilitiesArgs,
     QueryProductChannelAvailabilityArgs,
@@ -50,6 +52,7 @@ export class ChannelProductAvailabilityAdminResolver {
         return this.availabilityService.listOverrides(ctx, channelId, {
             productId: args.options?.productId ?? undefined,
             enabled: args.options?.enabled ?? undefined,
+            productName: args.options?.productName ?? undefined,
             skip: args.options?.skip ?? undefined,
             take: args.options?.take ?? undefined,
         });
@@ -77,5 +80,34 @@ export class ChannelProductAvailabilityAdminResolver {
         const channelId = args.input.channelId ?? ctx.channelId;
         this.channelAccess.assertPermissionInChannel(ctx, channelId, UPDATE_PERMISSIONS);
         return this.availabilityService.clearOverride(ctx, args.input.productId, channelId);
+    }
+
+    @Transaction()
+    @Mutation()
+    @Allow(...UPDATE_PERMISSIONS)
+    async setProductChannelAvailabilities(
+        @Ctx() ctx: RequestContext,
+        @Args() args: MutationSetProductChannelAvailabilitiesArgs,
+    ) {
+        this.assertPermissionInEveryChannel(ctx, args.input.channelIds);
+        return this.availabilityService.setOverrides(ctx, args.input.productIds, args.input.channelIds, args.input.enabled);
+    }
+
+    @Transaction()
+    @Mutation()
+    @Allow(...UPDATE_PERMISSIONS)
+    async clearProductChannelAvailabilities(
+        @Ctx() ctx: RequestContext,
+        @Args() args: MutationClearProductChannelAvailabilitiesArgs,
+    ) {
+        this.assertPermissionInEveryChannel(ctx, args.input.channelIds);
+        return this.availabilityService.clearOverrides(ctx, args.input.productIds, args.input.channelIds);
+    }
+
+    /** A bulk change is refused entirely if the administrator may not change one of the channels. */
+    private assertPermissionInEveryChannel(ctx: RequestContext, channelIds: Array<string | number>) {
+        for (const channelId of channelIds) {
+            this.channelAccess.assertPermissionInChannel(ctx, channelId, UPDATE_PERMISSIONS);
+        }
     }
 }

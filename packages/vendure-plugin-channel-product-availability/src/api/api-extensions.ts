@@ -33,6 +33,10 @@ export const adminApiExtensions = gql`
         productId: ID!
         channelId: ID!
         enabled: Boolean!
+        "The product's name in the request language."
+        productName: String
+        "The global Product.enabled value."
+        productEnabled: Boolean
     }
 
     type ProductChannelAvailabilityOverrideList {
@@ -45,6 +49,8 @@ export const adminApiExtensions = gql`
         channelId: ID
         productId: ID
         enabled: Boolean
+        "Products whose name contains this text (case-insensitive)."
+        productName: String
         skip: Int
         take: Int
     }
@@ -60,6 +66,34 @@ export const adminApiExtensions = gql`
         productId: ID!
         "Defaults to the active channel."
         channelId: ID
+    }
+
+    "Sets the override for every (product, channel) pair. At most 1,000 pairs per call."
+    input SetProductChannelAvailabilitiesInput {
+        productIds: [ID!]!
+        channelIds: [ID!]!
+        enabled: Boolean!
+    }
+
+    "Clears the override for every (product, channel) pair. At most 1,000 pairs per call."
+    input ClearProductChannelAvailabilitiesInput {
+        productIds: [ID!]!
+        channelIds: [ID!]!
+    }
+
+    type BulkAvailabilitySkip {
+        productId: ID!
+        channelId: ID!
+        reason: String!
+    }
+
+    type BulkProductChannelAvailabilityResult {
+        "Overrides created, changed or removed."
+        updated: Int!
+        "Pairs that already had the requested state."
+        unchanged: Int!
+        "Pairs that could not be applied (e.g. the product is not assigned to the channel); the rest still apply."
+        skipped: [BulkAvailabilitySkip!]!
     }
 
     extend type Query {
@@ -78,5 +112,9 @@ export const adminApiExtensions = gql`
         setProductChannelAvailability(input: SetProductChannelAvailabilityInput!): ProductChannelAvailability!
         "Removes the override so the product inherits Product.enabled again."
         clearProductChannelAvailability(input: ClearProductChannelAvailabilityInput!): ProductChannelAvailability!
+        "Sets overrides for many products in many channels, in one transaction. Requires permission in every channel."
+        setProductChannelAvailabilities(input: SetProductChannelAvailabilitiesInput!): BulkProductChannelAvailabilityResult!
+        "Clears overrides for many products in many channels, in one transaction. Requires permission in every channel."
+        clearProductChannelAvailabilities(input: ClearProductChannelAvailabilitiesInput!): BulkProductChannelAvailabilityResult!
     }
 `;

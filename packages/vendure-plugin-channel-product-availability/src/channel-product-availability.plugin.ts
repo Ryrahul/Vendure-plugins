@@ -2,6 +2,7 @@ import { OnApplicationBootstrap } from '@nestjs/common';
 import {
     ChannelEvent,
     EventBus,
+    I18nService,
     ID,
     Logger,
     PluginCommonModule,
@@ -21,6 +22,10 @@ import { CHANNEL_PRODUCT_AVAILABILITY_OPTIONS, loggerCtx } from './constants';
 import { ProductChannelAvailability } from './entities/product-channel-availability.entity';
 import { ProductChannelAvailabilityEvent } from './events/product-channel-availability.event';
 import { ChannelAvailabilityOrderInterceptor } from './order/channel-availability-order-interceptor';
+import {
+    PRODUCT_DISABLED_IN_CHANNEL_ERROR_KEY,
+    PRODUCT_DISABLED_IN_CHANNEL_MESSAGE,
+} from './order/channel-availability-order-interceptor';
 import { createChannelAvailabilityOrderProcess } from './order/channel-availability-order-process';
 import { OverridePurchaseService } from './order/override-purchase.service';
 import { SearchIndexSyncService } from './search/search-index-sync.service';
@@ -102,9 +107,13 @@ export class ChannelProductAvailabilityPlugin implements OnApplicationBootstrap 
         private eventBus: EventBus,
         private availabilityService: ChannelProductAvailabilityService,
         private processContext: ProcessContext,
+        private i18nService: I18nService,
     ) {}
 
     onApplicationBootstrap() {
+        this.i18nService.addTranslation('en', {
+            errorResult: { [PRODUCT_DISABLED_IN_CHANNEL_ERROR_KEY]: PRODUCT_DISABLED_IN_CHANNEL_MESSAGE },
+        });
         if (!this.processContext.isServer) {
             return;
         }

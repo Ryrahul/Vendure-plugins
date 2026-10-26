@@ -4,6 +4,7 @@
 #
 #   ./scripts/test-against-vendure.sh 3.8.0
 #   TEST_DB=postgres PGUSER=... PGPASSWORD=... ./scripts/test-against-vendure.sh 3.8.0
+#   ES_PLUGIN_VERSION=2.0.0 ELASTICSEARCH_PORT=9209 ./scripts/test-against-vendure.sh 3.8.0
 set -euo pipefail
 
 VERSION="${1:?usage: test-against-vendure.sh <vendure-version>}"
@@ -24,6 +25,8 @@ cat > "$WORK_DIR/package.json" <<JSON
     "@vendure/core": "$VERSION",
     "@vendure/common": "$VERSION",
     "@vendure/testing": "$VERSION",
+    "@vendure-community/elasticsearch-plugin": "${ES_PLUGIN_VERSION:-1.1.0}",
+    "@elastic/elasticsearch": "^9.1.0",
     "graphql-tag": "^2.12.6",
     "pg": "^8.13.0",
     "sql.js": "^1.13.0"
@@ -41,6 +44,11 @@ JSON
 cd "$WORK_DIR"
 echo "Installing Vendure $VERSION in $WORK_DIR"
 npm install --no-audit --no-fund --loglevel=error
+if [ -n "${ELASTICSEARCH_PORT:-}" ]; then
+  # The Elasticsearch plugin imports @nestjs/terminus, which Vendure 3.8 no longer ships;
+  # it only installs next to 3.8 with --legacy-peer-deps.
+  npm install --no-save --no-audit --no-fund --loglevel=error --legacy-peer-deps "@nestjs/terminus@^11.0.0"
+fi
 echo "Installed: $(node -p "require('@vendure/core/package.json').version")"
 npx tsc -p tsconfig.json --noEmit
 npx vitest run

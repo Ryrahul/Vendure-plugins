@@ -4,6 +4,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "e2e", "example"],
-  "exclude": ["src/dashboard", "example/vite.config.mts"]
+  "include": ["src", "e2e"],
+  "exclude": ["src/dashboard"]
 }
